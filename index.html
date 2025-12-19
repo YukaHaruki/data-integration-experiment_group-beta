@@ -1,0 +1,1688 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>データ統合実験（4セット）</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .content-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 10px;
+      box-sizing: border-box;
+      gap: 10px;
+    }
+    .header-bar {
+      border-bottom: 1px solid #ccc;
+      background: white;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      border-radius: 6px;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+    }
+    .header-title {
+      font-size: 18px;
+      font-weight: bold;
+      white-space: nowrap;
+    }
+    .dataset-label {
+      font-size: 13px;
+      color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 520px;
+    }
+    .stage-pill {
+      font-size: 12px;
+      background: #eee;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid #ddd;
+      white-space: nowrap;
+    }
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .header-controls label {
+      font-size: 12px;
+      color: #444;
+    }
+    .header-controls input {
+      font-size: 12px;
+      padding: 4px 6px;
+      width: 180px;
+    }
+    button {
+      font-size: 12px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    .top-half {
+      display: flex;
+      gap: 10px;
+      flex: 2;          /* 上 2/3 */
+      min-height: 0;
+    }
+    .bottom-half {
+      display: flex;
+      gap: 10px;
+      flex: 1;          /* 下 1/3 */
+      min-height: 0;
+    }
+    .top-column, .bottom-column {
+      flex: 1;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+    }
+    .upload-prompt {
+      font-size: 12px;
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+
+    .table-wrapper, .metadata-display, .match-display {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 4px 6px;
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+    th {
+      background: #f0f0f0;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    th.row-number {
+      width: 50px;
+      text-align: right;
+      background: #f0f0f0;
+      position: sticky;
+      left: 0;
+      z-index: 2;
+    }
+
+    .metadata-display, .match-display {
+      font-size: 12px;
+      white-space: pre;
+      word-break: break-word;
+    }
+
+    .answer-section {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+    .answer-title {
+      font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+    .answer-label {
+      font-weight: bold;
+      margin-top: 6px;
+      font-size: 12px;
+    }
+    .answer-input {
+      resize: vertical;
+      font-size: 12px;
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 48px;
+      padding: 4px;
+    }
+    .action-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .status {
+      font-size: 12px;
+      color: #0a6;
+      margin-left: auto;
+      white-space: nowrap;
+    }
+    .small-note {
+      font-size: 11px;
+      color: #444;
+      margin-top: 2px;
+      line-height: 1.3;
+    }
+    .danger-note {
+      font-size: 11px;
+      color: #a00;
+      margin-top: 6px;
+      line-height: 1.3;
+      display: none;
+    }
+    .toast {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease-in-out;
+    }
+    .toast.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="content-container">
+    <div class="header-bar">
+      <div class="header-left">
+        <div class="header-title">データ統合実験</div>
+        <div id="stagePill" class="stage-pill">Stage 1 / 4</div>
+        <div id="datasetLabel" class="dataset-label"></div>
+      </div>
+      <div class="header-controls">
+        <label for="participantId">Participant ID（任意）:</label>
+        <input id="participantId" type="text" placeholder="e.g., P0123" autocomplete="off" />
+        <button id="nextBtn" type="button">Next</button>
+      </div>
+    </div>
+
+    <div class="top-half">
+      <div class="top-column">
+        <div class="upload-prompt">Table A</div>
+        <div class="table-wrapper" id="tableWrapper1"></div>
+      </div>
+      <div class="top-column">
+        <div class="upload-prompt">Table B</div>
+        <div class="table-wrapper" id="tableWrapper2"></div>
+      </div>
+    </div>
+
+    <div class="bottom-half">
+      <div class="bottom-column">
+        <div class="upload-prompt">Metadata / Description</div>
+        <div class="metadata-display" id="metadataDisplay"></div>
+      </div>
+      <div class="bottom-column" id="matchColumn">
+        <div class="upload-prompt">Matching Recommendation (SM + ER)</div>
+        <div class="match-display" id="matchDisplay"></div>
+      </div>
+      <div class="bottom-column">
+        <div class="answer-section">
+          <div class="answer-title">マッチング回答欄</div>
+          <div class="small-note">
+            「Submit」を押すと回答がブラウザ内に保存されます（このPC/ブラウザにのみ保存）。
+            必要に応じて「Export」または「Copy Saved Answer」で回収できます。
+          </div>
+          <div class="danger-note" id="storageWarning">
+            注意: このブラウザでは localStorage が利用できない可能性があります。少なくとも「Copy Saved Answer」を使って回答を控えてください。
+          </div>
+
+          <label class="answer-label" for="smAnswer">SM:</label>
+          <textarea id="smAnswer" class="answer-input" placeholder="SMに対する回答を入力してください"></textarea>
+
+          <label class="answer-label" for="erAnswer">ER:</label>
+          <textarea id="erAnswer" class="answer-input" placeholder="ERに対する回答を入力してください"></textarea>
+
+          <div class="action-row">
+            <button id="submitAnswer" type="button">Submit (Save)</button>
+            <button id="exportAll" type="button">Export Saved Answers (JSON)</button>
+            <button id="copyAll" type="button">Copy Saved Answer</button>
+            <button id="clearAll" type="button">Clear Saved Answers</button>
+            <div id="saveStatus" class="status"></div>
+          </div>
+
+
+          <div id="finalCopyPanel" class="final-panel" style="display:none; margin-top: 12px;">
+            <div class="small-note">
+              Stage 4 では、Set1〜Set4 の回答を以下の形式でまとめて表示します。上の「Copy Saved Answer」を押すと、このテキストがコピーされます。
+            </div>
+            <textarea id="finalCopyText" class="answer-input" readonly placeholder="ここに最終出力が表示されます" style="height: 240px;"></textarea>
+          </div>
+          <div class="small-note">
+            提出（サーバへ送信）まで行う場合は、別途エンドポイントが必要です（本HTMLは静的サイト想定のため、既定ではローカル保存のみ）。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <!-- ---------- Embedded datasets as inert text blocks (robust for web hosting) ---------- -->
+  <script type="text/plain" id="ds_set1_tableA">TxnID,CustomerID,MerchantName,Category,AmountJPY,TxnDate,City
+TX-20250001,C1081,SakuraBooks,Grocery,35684.88,2025-05-10,Sapporo
+TX-20250002,C1027,BlueCoffee,Fitness,29036.19,2025-10-19,Sapporo
+TX-20250003,C1020,MoriFuel,Fuel,16562.94,2025-03-25,Sapporo
+TX-20250004,C1093,NekoRamen,Fitness,6297.97,2025-07-17,Osaka
+TX-20250005,C1029,HikariPharmacy,Transport,41105.89,2025-02-25,Kyoto
+TX-20250006,C1087,PeakAir,Transport,29375.09,2025-04-02,Hiroshima
+TX-20250007,C1099,KikuMart,Entertainment,39508.89,2025-06-15,Kyoto
+TX-20250008,C1082,NekoRamen,Dining,12971.54,2025-05-11,Hiroshima
+TX-20250009,C1011,KikuMart,Transport,7632.89,2025-03-27,Kyoto
+TX-20250010,C1014,PeakAir,Fitness,36129.33,2025-11-29,Sendai
+TX-20250011,C1013,PeakAir,Health,40455.54,2025-09-21,Kanazawa
+TX-20250012,C1014,ZenElectronics,Health,11759.90,2025-05-08,Kanazawa
+TX-20250013,C1060,SunGym,Dining,12979.95,2025-11-11,Kyoto
+TX-20250014,C1083,ZenElectronics,Lodging,43216.61,2025-08-24,Osaka
+TX-20250015,C1080,KikuMart,Entertainment,3561.63,2025-01-21,Sendai
+TX-20250016,C1060,RiverCinema,Entertainment,4844.62,2025-08-13,Sendai
+TX-20250017,C1093,ZenElectronics,Transport,12198.47,2025-04-12,Hiroshima
+TX-20250018,C1070,SakuraBooks,Grocery,31424.70,2025-10-08,Tokyo
+TX-20250019,C1007,MetroTaxi,Fuel,452.70,2025-07-23,Fukuoka
+TX-20250020,C1037,BlueCoffee,Grocery,27947.94,2025-10-09,Tokyo
+TX-20250021,C1065,SakuraBooks,Dining,3615.04,2025-02-08,Sapporo
+TX-20250022,C1074,AobaHotel,Fitness,15425.02,2025-05-18,Sapporo
+TX-20250023,C1096,SakuraBooks,Grocery,22187.31,2025-10-20,Osaka
+TX-20250024,C1056,SunGym,Health,29496.45,2025-10-02,Tokyo
+TX-20250025,C1013,MoriFuel,Fitness,7757.09,2025-05-29,Kanazawa
+TX-20250026,C1054,HikariPharmacy,Grocery,518.95,2025-03-12,Fukuoka
+TX-20250027,C1047,AobaHotel,Fitness,7406.67,2025-03-11,Tokyo
+TX-20250028,C1045,SunGym,Fuel,46753.33,2025-03-25,Sapporo
+TX-20250029,C1052,PeakAir,Entertainment,13063.29,2025-03-01,Kyoto
+TX-20250030,C1084,BlueCoffee,Fuel,15991.68,2025-02-09,Fukuoka
+TX-20250031,C1033,MetroTaxi,Retail,46214.76,2025-05-20,Tokyo
+TX-20250032,C1073,BlueCoffee,Health,2465.02,2025-08-16,Tokyo
+TX-20250033,C1042,AobaHotel,Electronics,31960.41,2025-03-09,Fukuoka
+TX-20250034,C1048,PeakAir,Dining,29679.29,2025-06-08,Kyoto
+TX-20250035,C1056,PeakAir,Entertainment,24707.44,2025-04-01,Osaka
+TX-20250036,C1028,BlueCoffee,Dining,1513.87,2025-05-10,Kobe
+TX-20250037,C1031,MetroTaxi,Grocery,42885.24,2025-02-28,Kyoto
+TX-20250038,C1059,PeakAir,Fitness,47423.08,2025-11-05,Sendai
+TX-20250039,C1095,NekoRamen,Lodging,12700.48,2025-05-11,Fukuoka
+TX-20250040,C1042,ZenElectronics,Fitness,4189.53,2025-03-23,Sapporo
+TX-20250041,C1026,RiverCinema,Fuel,43465.55,2025-10-31,Tokyo
+TX-20250042,C1053,SunGym,Fitness,38463.72,2025-04-27,Kobe
+TX-20250043,C1059,MetroTaxi,Retail,25800.99,2025-07-25,Kanazawa
+TX-20250044,C1041,BlueCoffee,Lodging,15924.20,2025-07-18,Fukuoka
+TX-20250045,C1044,BlueCoffee,Transport,37575.75,2025-01-25,Tokyo
+TX-20250046,C1027,NekoRamen,Health,36892.69,2025-03-31,Kanazawa
+TX-20250047,C1073,PeakAir,Fuel,19250.58,2025-04-16,Osaka
+TX-20250048,C1072,KikuMart,Electronics,25735.31,2025-07-13,Osaka
+TX-20250049,C1058,MoriFuel,Dining,21100.96,2025-09-29,Fukuoka
+TX-20250050,C1031,SakuraBooks,Health,42359.73,2025-05-09,Kobe
+TX-20250051,C1033,ZenElectronics,Health,42297.25,2025-05-26,Hiroshima
+TX-20250052,C1082,MoriFuel,Lodging,21705.52,2025-01-13,Osaka
+TX-20250053,C1095,SunGym,Electronics,17113.77,2025-08-25,Fukuoka
+TX-20250054,C1094,NekoRamen,Health,34876.48,2025-09-30,Kanazawa
+TX-20250055,C1016,HikariPharmacy,Grocery,46775.15,2025-10-15,Fukuoka
+TX-20250056,C1056,ZenElectronics,Dining,46355.96,2025-05-14,Kobe
+TX-20250057,C1072,HikariPharmacy,Transport,47710.20,2025-03-06,Hiroshima
+TX-20250058,C1038,AobaHotel,Fuel,14901.37,2025-11-18,Tokyo
+TX-20250059,C1022,SunGym,Transport,7808.78,2025-08-02,Kobe
+TX-20250060,C1029,HikariPharmacy,Retail,31855.37,2025-04-16,Kyoto
+TX-20250061,C1039,AobaHotel,Retail,44244.82,2025-08-17,Osaka
+TX-20250062,C1005,RiverCinema,Electronics,29116.95,2025-01-18,Osaka
+TX-20250063,C1097,MetroTaxi,Lodging,25078.63,2025-08-19,Fukuoka
+TX-20250064,C1041,PeakAir,Transport,41220.98,2025-06-22,Kyoto
+TX-20250065,C1041,SakuraBooks,Fuel,41562.99,2025-01-05,Hiroshima
+TX-20250066,C1026,HikariPharmacy,Fitness,6592.78,2025-06-01,Kobe
+TX-20250067,C1001,SunGym,Fuel,4791.42,2025-03-04,Kobe
+TX-20250068,C1061,NekoRamen,Entertainment,22115.88,2025-03-20,Kyoto
+TX-20250069,C1064,HikariPharmacy,Grocery,13827.28,2025-06-06,Kanazawa
+TX-20250070,C1069,RiverCinema,Lodging,44800.41,2025-04-11,Sapporo
+TX-20250071,C1084,PeakAir,Dining,23952.41,2025-01-23,Nagoya
+TX-20250072,C1018,RiverCinema,Dining,3915.57,2025-05-20,Sendai
+TX-20250073,C1080,MoriFuel,Lodging,41919.05,2025-01-23,Kanazawa
+TX-20250074,C1090,SakuraBooks,Lodging,8277.28,2025-06-07,Tokyo
+TX-20250075,C1023,MetroTaxi,Dining,4112.84,2025-07-19,Kanazawa
+TX-20250076,C1001,NekoRamen,Health,32638.16,2025-03-26,Osaka
+TX-20250077,C1038,BlueCoffee,Fuel,41011.43,2025-02-28,Sapporo
+TX-20250078,C1072,PeakAir,Grocery,43740.90,2025-09-16,Fukuoka
+TX-20250079,C1092,PeakAir,Dining,30286.02,2025-11-22,Tokyo
+TX-20250080,C1053,MetroTaxi,Entertainment,6647.41,2025-10-08,Sendai
+TX-20250081,C1037,MoriFuel,Electronics,38671.68,2025-09-01,Osaka
+TX-20250082,C1050,KikuMart,Health,25917.67,2025-08-25,Sendai
+TX-20250083,C1079,SunGym,Electronics,43961.94,2025-04-28,Osaka
+TX-20250084,C1038,NekoRamen,Transport,4981.20,2025-10-07,Nagoya
+TX-20250085,C1083,SakuraBooks,Lodging,29685.83,2025-05-28,Tokyo
+TX-20250086,C1082,ZenElectronics,Grocery,19321.35,2025-04-12,Osaka
+TX-20250087,C1042,BlueCoffee,Dining,37849.51,2025-04-20,Osaka
+TX-20250088,C1076,KikuMart,Health,41253.05,2025-03-20,Nagoya
+TX-20250089,C1002,MetroTaxi,Health,2846.81,2025-08-08,Hiroshima
+TX-20250090,C1078,KikuMart,Fitness,14722.69,2025-11-30,Tokyo
+TX-20250091,C1010,ZenElectronics,Retail,7418.11,2025-03-10,Fukuoka
+TX-20250092,C1077,RiverCinema,Transport,38141.03,2025-03-04,Hiroshima
+TX-20250093,C1093,SakuraBooks,Electronics,20685.30,2025-05-15,Sendai
+TX-20250094,C1094,ZenElectronics,Dining,26861.07,2025-11-01,Hiroshima
+TX-20250095,C1076,HikariPharmacy,Electronics,5286.57,2025-09-21,Sapporo
+TX-20250096,C1073,BlueCoffee,Fuel,40621.64,2025-11-19,Kanazawa
+TX-20250097,C1089,HikariPharmacy,Electronics,17076.27,2025-04-07,Nagoya
+TX-20250098,C1058,ZenElectronics,Dining,17983.03,2025-06-20,Kanazawa
+TX-20250099,C1084,RiverCinema,Lodging,29277.17,2025-08-05,Fukuoka
+TX-20250100,C1039,KikuMart,Entertainment,19184.30,2025-11-07,Tokyo</script>
+  <script type="text/plain" id="ds_set1_tableB">RecordRef,CardholderID,Payee,MCC,Amount,PostedDate,Location
+TRN/20250001,C1081,SakuraBooks,5411,35684.88 JPY,2025/05/10,Sapporo
+TX20250002,c1027,BlueCoffee,7997,JPY 29036,2025/10/19,Sapporo
+TX20250003,C1020,MORIFUEL,5541,16562.94 JPY,2025/03/27,Sapporo-JP
+TRN/20250004,c1093,NekoRamen,5399,JPY 6298,2025/07/17,Osaka
+TRN/20250005,C1029,HIKARIPHARMACY,4121,JPY 41106,2025/02/27,Kyoto
+TX20250006,C1087,PEAKAIR,7997,JPY 29375,2025/04/04,Hiroshima-JP
+TRN/20250007,C1099,KikuMart,5732,JPY 39509,2025/06/18,Kyoto
+TRN/20250008,c1082,NekoRamen,5812,JPY 12972,2025/05/12,Hiroshima
+TRN/20250009,C1011,KikuMart,4121,JPY 7633,2025/03/27,Kyoto
+TRN/20250069,C1064,HikariPharmacy,5411,JPY 13827,2025/06/08,Kanazawa
+TRN/20250011,C1013,PEAKAIR,7997,40455.54 JPY,2025/09/23,Kanazawa
+TX20250012,C1014,ZenElectronics,5912,11759.90 JPY,2025/05/09,Kanazawa
+TX20250013,c1060,SunGym,5812,12979.95 JPY,2025/11/14,Kyoto-JP
+TRN/20250014,C1083,ZENELECTRONICS,7011,43216.61 JPY,2025/08/24,Osaka
+TRN/20250015,C1080,KikuMart,7832,JPY 3562,2025/01/24,Sendai
+TRN/20250016,C1060,RiverCinema,7832,4844.62 JPY,2025/08/13,Sendai
+TX20250086,c1082,ZENELECTRONICS,5411,19321.35 JPY,2025/04/12,Osaka
+TX20250018,c1070,SakuraBooks,5411,JPY 31425,2025/10/09,Tokyo-JP
+TX20250019,c1007,METROTAXI,5541,452.70 JPY,2025/07/26,Fukuoka
+TX20250020,C1037,BlueCoffee,5411,27947.94 JPY,2025/10/10,Tokyo
+TRN/20250021,c1065,SakuraBooks,5812,JPY 3615,2025/02/08,Sapporo
+TX20250022,C1074,AOBAHOTEL,7997,15425.02 JPY,2025/05/21,Sapporo
+TX20250072,C1018,RIVERCINEMA,5812,3915.57 JPY,2025/05/23,Sendai-JP
+TX20250024,C1056,SunGym,5912,29496.45 JPY,2025/10/04,Tokyo
+TRN/20250025,C1013,MoriFuel,7997,JPY 7757,2025/05/29,Kanazawa
+TRN/20250026,C1054,HikariPharmacy,5411,JPY 519,2025/03/13,Fukuoka
+TRN/20250027,c1047,AobaHotel,5732,JPY 7407,2025/03/12,Tokyo
+TX20250028,c1045,SunGym,5411,JPY 46753,2025/03/27,Sapporo
+TX20250029,c1052,PEAKAIR,7011,JPY 13063,2025/03/02,Kyoto
+TX20250096,C1073,BlueCoffee,5541,40621.64 JPY,2025/11/19,Kanazawa
+TRN/20250031,C1033,MetroTaxi,5399,46214.76 JPY,2025/05/20,Tokyo
+TRN/20250032,c1073,BlueCoffee,7832,JPY 2465,2025/08/16,Tokyo-JP
+TRN/20250033,C1042,AOBAHOTEL,5732,31960.41 JPY,2025/03/10,Fukuoka
+TRN/20250034,C1048,PEAKAIR,5812,29679.29 JPY,2025/06/10,Kyoto
+TRN/20250035,C1056,PeakAir,7832,24707.44 JPY,2025/04/02,Osaka
+TX20250036,c1028,BlueCoffee,5399,JPY 1514,2025/05/13,Kobe
+TRN/20250037,c1031,MetroTaxi,5411,42885.24 JPY,2025/02/28,Kyoto
+TX20250038,c1059,PeakAir,7997,47423.08 JPY,2025/11/08,Sendai-JP
+TX20250039,C1095,NekoRamen,7011,JPY 12700,2025/05/13,Fukuoka
+TRN/20250040,C1042,ZENELECTRONICS,7997,JPY 4190,2025/03/26,Sapporo
+TX20250041,c1026,RIVERCINEMA,5541,JPY 43466,2025/11/03,Tokyo-JP
+TRN/20250042,C1053,SUNGYM,7997,38463.72 JPY,2025/04/30,Kobe
+TRN/20250043,C1059,MetroTaxi,5399,JPY 25801,2025/07/25,Kanazawa
+TX20250044,c1041,BLUECOFFEE,7011,JPY 15924,2025/07/18,Fukuoka-JP
+TX20250045,C1044,BLUECOFFEE,4121,JPY 37576,2025/01/25,Tokyo
+TX20250049,c1058,MoriFuel,5812,21100.96 JPY,2025/10/01,Fukuoka
+TRN/20250047,c1073,PEAKAIR,5541,JPY 19251,2025/04/16,Osaka
+TRN/20250048,C1072,KikuMart,4121,JPY 25735,2025/07/15,Osaka
+TX20250046,c1027,NEKORAMEN,5912,JPY 36893,2025/03/31,Kanazawa-JP
+TRN/20250050,C1031,SAKURABOOKS,5912,JPY 42360,2025/05/12,Kobe
+TRN/20250051,c1033,ZENELECTRONICS,5912,JPY 42297,2025/05/27,Hiroshima
+TRN/20250052,C1082,MORIFUEL,7011,JPY 21706,2025/01/15,Osaka
+TRN/20250053,C1095,SunGym,5732,17113.77 JPY,2025/08/26,Fukuoka
+TRN/20250054,C1094,NEKORAMEN,5912,JPY 34876,2025/09/30,Kanazawa
+TX20250055,C1016,HikariPharmacy,5411,46775.15 JPY,2025/10/17,Fukuoka
+TRN/20250065,C1041,SakuraBooks,5541,JPY 41563,2025/01/08,Hiroshima
+TX20250057,C1072,HikariPharmacy,4121,47710.20 JPY,2025/03/09,Hiroshima-JP
+TX20250058,c1038,AobaHotel,5541,JPY 14901,2025/11/18,Tokyo
+TX20250059,C1022,SUNGYM,4121,JPY 7809,2025/08/05,Kobe
+TRN/20250060,C1029,HIKARIPHARMACY,5399,JPY 31855,2025/04/16,Kyoto
+TRN/20250061,C1039,AobaHotel,5399,44244.82 JPY,2025/08/20,Osaka
+TRN/20250062,C1005,RiverCinema,5732,JPY 29117,2025/01/20,Osaka
+TRN/20250063,C1097,MetroTaxi,7011,JPY 25079,2025/08/21,Fukuoka
+TX20250091,C1010,ZenElectronics,5399,7418.11 JPY,2025/03/12,Fukuoka
+TRN/20250056,C1056,ZenElectronics,5812,46355.96 JPY,2025/05/15,Kobe
+TX20250066,C1026,HIKARIPHARMACY,7997,6592.78 JPY,2025/06/02,Kobe
+TX20250067,C1001,SUNGYM,5912,4791.42 JPY,2025/03/06,Kobe
+TRN/20250068,C1061,NekoRamen,7832,JPY 22116,2025/03/23,Kyoto
+TRN/20250010,C1014,PeakAir,5912,36129.33 JPY,2025/11/30,Sendai
+TRN/20250070,C1069,RiverCinema,7011,44800.41 JPY,2025/04/14,Sapporo
+TRN/20250071,C1084,PeakAir,7011,JPY 23952,2025/01/26,Nagoya
+TRN/20250023,C1096,SAKURABOOKS,4121,22187.31 JPY,2025/10/22,Osaka
+TRN/20250073,C1080,MoriFuel,4121,JPY 41919,2025/01/23,Kanazawa
+TRN/20250074,c1090,SAKURABOOKS,7011,JPY 8277,2025/06/10,Tokyo
+TX20250075,C1023,MetroTaxi,5812,4112.84 JPY,2025/07/22,Kanazawa
+TRN/20250076,C1001,NekoRamen,5912,JPY 32638,2025/03/28,Osaka
+TRN/20250077,C1038,BLUECOFFEE,5541,JPY 41011,2025/03/03,Sapporo
+TX20250078,C1072,PeakAir,5411,JPY 43741,2025/09/18,Fukuoka
+TRN/20250079,C1092,PeakAir,5812,JPY 30286,2025/11/24,Tokyo
+TRN/20250080,c1053,MetroTaxi,7832,6647.41 JPY,2025/10/11,Sendai-JP
+TRN/20250081,c1037,MoriFuel,5732,38671.68 JPY,2025/09/03,Osaka
+TX20250082,C1050,KikuMart,5732,JPY 25918,2025/08/26,Sendai
+TX20250083,C1079,SunGym,5732,JPY 43962,2025/04/28,Osaka-JP
+TRN/20250084,C1038,NekoRamen,4121,4981.20 JPY,2025/10/08,Nagoya-JP
+TX20250085,C1083,SakuraBooks,7011,JPY 29686,2025/05/30,Tokyo
+TRN/20250017,C1093,ZENELECTRONICS,4121,12198.47 JPY,2025/04/15,Hiroshima-JP
+TX20250087,C1042,BlueCoffee,7832,JPY 37850,2025/04/21,Osaka
+TRN/20250088,c1076,KIKUMART,5812,JPY 41253,2025/03/21,Nagoya
+TRN/20250089,C1002,MetroTaxi,5912,2846.81 JPY,2025/08/11,Hiroshima
+TRN/20250090,C1078,KikuMart,7997,JPY 14723,2025/12/03,Tokyo
+TX20250064,C1041,PeakAir,7997,JPY 41221,2025/06/22,Kyoto
+TX20250092,C1077,RiverCinema,4121,JPY 38141,2025/03/07,Hiroshima
+TX20250093,C1093,SakuraBooks,5732,JPY 20685,2025/05/18,Sendai
+TRN/20250094,C1094,ZenElectronics,5541,26861.07 JPY,2025/11/01,Hiroshima-JP
+TRN/20250095,C1076,HikariPharmacy,5732,5286.57 JPY,2025/09/21,Sapporo
+TRN/20250030,C1084,BlueCoffee,5732,15991.68 JPY,2025/02/09,Fukuoka-JP
+TRN/20250097,C1089,HIKARIPHARMACY,5732,JPY 17076,2025/04/08,Nagoya
+TRN/20250098,c1058,ZENELECTRONICS,5812,JPY 17983,2025/06/20,Kanazawa
+TRN/20250099,C1084,RIVERCINEMA,7011,29277.17 JPY,2025/08/08,Fukuoka
+TRN/20250100,C1039,KIKUMART,7832,JPY 19184,2025/11/09,Tokyo</script>
+  <script type="text/plain" id="ds_set1_desc">A_TxnID, Transaction identifier in Table A.
+A_CustomerID, Customer/account identifier in Table A.
+A_MerchantName, Merchant name in Table A.
+A_Category, Spending category label in Table A.
+A_AmountJPY, Transaction amount in JPY in Table A (numeric text).
+A_TxnDate, Transaction date in Table A (YYYY-MM-DD).
+A_City, City of transaction in Table A.
+
+B_RecordRef, Transaction reference in Table B (may use alternate separators).
+B_CardholderID, Cardholder identifier in Table B (may differ in casing).
+B_Payee, Payee/merchant name in Table B (may be uppercased).
+B_MCC, Merchant category code in Table B.
+B_Amount, Amount text in Table B (may include currency tokens).
+B_PostedDate, Posted/settlement date in Table B (YYYY/MM/DD).
+B_Location, Location label in Table B (may append country code).</script>
+  <script type="text/plain" id="ds_set1_match">SM
+A_TxnID, B_RecordRef
+A_MerchantName, B_Payee
+A_AmountJPY, B_Amount
+A_TxnDate, B_PostedDate
+
+ER
+A_64, B_91
+A_96, B_30
+A_56, B_65
+A_23, B_72
+A_17, B_86
+A_49, B_46
+A_69, B_10</script>
+
+  <script type="text/plain" id="ds_set2_tableA">BookingID,Traveler,HotelName,City,CheckInDate,Nights,TotalJPY
+BK-20250001,Ito_A,NamiLodge,Shinjuku,2025-03-12,7,94066
+BK-20250002,Tanaka_D,GardenStay,Namba,2025-03-27,2,126209
+BK-20250003,Tanaka_A,MizuGuesthouse,Namba,2025-10-20,2,103586
+BK-20250004,Tanaka_B,HarborSuites,Gion,2025-09-26,7,159779
+BK-20250005,Suzuki_D,KazeHotel,Hakata,2025-11-30,1,104259
+BK-20250006,Suzuki_D,KazeHotel,Sendai,2025-02-22,4,161856
+BK-20250007,Watanabe_A,MizuGuesthouse,Gion,2025-06-07,6,126755
+BK-20250008,Watanabe_A,GardenStay,Namba,2025-03-21,5,113335
+BK-20250009,Nakamura_B,GardenStay,Hakata,2025-04-08,5,34208
+BK-20250010,Kato_A,NamiLodge,Kanazawa,2025-02-10,3,92967
+BK-20250011,Kobayashi_A,MizuGuesthouse,Kanazawa,2025-02-20,6,100280
+BK-20250012,Nakamura_B,KazeHotel,Shinjuku,2025-08-06,6,74267
+BK-20250013,Yoshida_B,GardenStay,Sendai,2025-09-25,7,85864
+BK-20250014,Kobayashi_A,KazeHotel,Naha,2025-03-25,6,147242
+BK-20250015,Suzuki_B,KazeHotel,Naha,2025-09-01,1,115928
+BK-20250016,Saito_C,SkylineHotel,Gion,2025-06-27,7,135851
+BK-20250017,Sato_B,MizuGuesthouse,Sendai,2025-09-05,1,87524
+BK-20250018,Yoshida_A,MizuGuesthouse,Sendai,2025-04-15,3,124522
+BK-20250019,Watanabe_A,MizuGuesthouse,Kanazawa,2025-10-18,5,17330
+BK-20250020,Suzuki_C,MapleRyokan,Namba,2025-07-21,2,23622
+BK-20250021,Yoshida_B,SkylineHotel,Namba,2025-02-19,3,64845
+BK-20250022,Yamamoto_D,KumoResort,Shinjuku,2025-06-27,3,24531
+BK-20250023,Ito_C,SkylineHotel,Hondori,2025-08-08,7,148125
+BK-20250024,Kobayashi_C,HarborSuites,Namba,2025-07-02,3,128894
+BK-20250025,Watanabe_D,KumoResort,Shinjuku,2025-08-27,3,146502
+BK-20250026,Tanaka_A,MapleRyokan,Naha,2025-08-16,5,20489
+BK-20250027,Watanabe_D,GardenStay,Hakata,2025-03-31,1,60771
+BK-20250028,Nakamura_C,KazeHotel,Sapporo,2025-04-11,7,31412
+BK-20250029,Watanabe_C,HarborSuites,Kanazawa,2025-06-29,3,53289
+BK-20250030,Sato_B,MapleRyokan,Hondori,2025-08-04,5,162019
+BK-20250031,Saito_D,MizuGuesthouse,Sakae,2025-11-22,1,44853
+BK-20250032,Yamamoto_B,SkylineHotel,Sakae,2025-03-01,7,44548
+BK-20250033,Yamamoto_C,HarborSuites,Hakata,2025-11-10,3,44812
+BK-20250034,Tanaka_C,KoyoHotel,Shinjuku,2025-03-14,1,163197
+BK-20250035,Yamamoto_C,KumoResort,Hondori,2025-08-27,3,130893
+BK-20250036,Watanabe_C,GardenStay,Sakae,2025-08-09,5,159233
+BK-20250037,Ito_D,MapleRyokan,Gion,2025-11-23,6,93976
+BK-20250038,Ito_D,MapleRyokan,Sapporo,2025-07-31,1,25248
+BK-20250039,Tanaka_C,GardenStay,Sakae,2025-02-24,4,25410
+BK-20250040,Kobayashi_A,SkylineHotel,Namba,2025-08-11,7,100889
+BK-20250041,Yamada_B,GardenStay,Hondori,2025-09-22,2,170927
+BK-20250042,Kobayashi_C,MizuGuesthouse,Kanazawa,2025-10-09,6,159567
+BK-20250043,Saito_A,KoyoHotel,Hondori,2025-11-24,5,71649
+BK-20250044,Tanaka_B,AoiInn,Sendai,2025-05-09,1,127615
+BK-20250045,Saito_A,SkylineHotel,Kanazawa,2025-11-15,3,137402
+BK-20250046,Saito_C,KoyoHotel,Hondori,2025-06-07,3,158299
+BK-20250047,Yoshida_C,MizuGuesthouse,Hakata,2025-04-04,5,154394
+BK-20250048,Watanabe_D,KumoResort,Hondori,2025-05-15,7,153184
+BK-20250049,Yamada_B,MapleRyokan,Shinjuku,2025-08-31,3,135837
+BK-20250050,Yoshida_D,MapleRyokan,Hakata,2025-06-27,6,27509
+BK-20250051,Tanaka_D,SkylineHotel,Shinjuku,2025-10-12,2,87882
+BK-20250052,Kato_D,SkylineHotel,Kanazawa,2025-06-20,2,41529
+BK-20250053,Kobayashi_B,SkylineHotel,Sendai,2025-09-07,5,97964
+BK-20250054,Kobayashi_D,MapleRyokan,Hondori,2025-07-19,3,164688
+BK-20250055,Kobayashi_B,NamiLodge,Kanazawa,2025-04-02,6,89342
+BK-20250056,Ito_D,MizuGuesthouse,Sapporo,2025-12-03,7,33461
+BK-20250057,Yamamoto_B,KoyoHotel,Kanazawa,2025-04-26,3,148404
+BK-20250058,Yoshida_B,MizuGuesthouse,Sakae,2025-11-16,1,158485
+BK-20250059,Suzuki_A,NamiLodge,Naha,2025-11-05,1,30092
+BK-20250060,Saito_D,GardenStay,Sakae,2025-08-13,4,33037
+BK-20250061,Yamamoto_D,MizuGuesthouse,Gion,2025-02-02,7,17959
+BK-20250062,Watanabe_B,KumoResort,Sapporo,2025-02-17,7,121901
+BK-20250063,Nakamura_A,MapleRyokan,Shinjuku,2025-09-13,2,153494
+BK-20250064,Saito_C,KoyoHotel,Sendai,2025-06-02,3,49554
+BK-20250065,Saito_B,NamiLodge,Kanazawa,2025-02-25,3,111917
+BK-20250066,Yoshida_B,MapleRyokan,Hakata,2025-09-26,1,159426
+BK-20250067,Suzuki_D,GardenStay,Namba,2025-05-09,1,82375
+BK-20250068,Kato_B,KazeHotel,Sapporo,2025-07-06,1,67524
+BK-20250069,Nakamura_B,NamiLodge,Sapporo,2025-07-15,7,86202
+BK-20250070,Suzuki_D,GardenStay,Sapporo,2025-07-11,4,23984
+BK-20250071,Ito_C,SkylineHotel,Sapporo,2025-05-29,4,161366
+BK-20250072,Saito_D,KazeHotel,Gion,2025-04-28,2,155273
+BK-20250073,Suzuki_A,AoiInn,Sakae,2025-05-30,1,51591
+BK-20250074,Yoshida_D,AoiInn,Shinjuku,2025-11-10,4,15106
+BK-20250075,Ito_B,HarborSuites,Namba,2025-04-18,2,62313
+BK-20250076,Yoshida_B,MapleRyokan,Hakata,2025-02-17,1,118241
+BK-20250077,Ito_C,KoyoHotel,Namba,2025-02-22,2,67421
+BK-20250078,Kobayashi_A,SkylineHotel,Naha,2025-05-18,5,49798
+BK-20250079,Ito_C,NamiLodge,Gion,2025-10-15,6,102664
+BK-20250080,Watanabe_A,KumoResort,Hondori,2025-05-28,3,156975
+BK-20250081,Sato_A,HarborSuites,Hakata,2025-08-14,6,178173
+BK-20250082,Kobayashi_A,SkylineHotel,Namba,2025-09-09,4,158010
+BK-20250083,Watanabe_D,AoiInn,Hakata,2025-08-18,7,34203
+BK-20250084,Tanaka_C,KumoResort,Hakata,2025-04-16,1,55832
+BK-20250085,Kato_D,KoyoHotel,Sendai,2025-09-23,1,47517
+BK-20250086,Watanabe_D,KoyoHotel,Gion,2025-07-15,5,64652
+BK-20250087,Nakamura_B,GardenStay,Sakae,2025-08-21,3,41855
+BK-20250088,Yoshida_B,KazeHotel,Hakata,2025-08-29,6,142889
+BK-20250089,Yoshida_D,KoyoHotel,Sakae,2025-10-18,7,121655
+BK-20250090,Suzuki_A,MapleRyokan,Naha,2025-12-11,1,159644
+BK-20250091,Yamada_A,KumoResort,Sapporo,2025-10-24,5,164179
+BK-20250092,Tanaka_C,AoiInn,Hondori,2025-07-02,4,34506
+BK-20250093,Yoshida_C,KazeHotel,Namba,2025-09-20,3,29609
+BK-20250094,Tanaka_B,MizuGuesthouse,Gion,2025-04-23,3,158761
+BK-20250095,Saito_B,KazeHotel,Sendai,2025-08-19,1,68307
+BK-20250096,Watanabe_C,MapleRyokan,Hondori,2025-06-15,6,140315
+BK-20250097,Yoshida_B,KumoResort,Sendai,2025-03-16,6,47113
+BK-20250098,Nakamura_B,KoyoHotel,Sakae,2025-05-07,4,178592
+BK-20250099,Watanabe_D,KoyoHotel,Shinjuku,2025-02-05,4,47791
+BK-20250100,Saito_D,KazeHotel,Gion,2025-11-17,1,69810</script>
+  <script type="text/plain" id="ds_set2_tableB">ReservationRef,GuestName,PropertyName,Municipality,ArrivalDate,StayLength,AmountText
+RSV/20250001,Ito_A,NamiLodge_Main,Shinjuku-ku,12-Mar-2025,7 nights,94066 yen
+RSV/20250002,Tanaka_D,GardenStay,Namba-ku,27-Mar-2025,2 nights,JPY 126209
+RSV/20250003,Tanaka_A,MizuGuesthouse,Namba-ku,20-Oct-2025,2 nights,JPY 103586
+BK20250004,Tanaka_B,HarborSuites_Main,Gion,26-Sep-2025,7,JPY 159779
+RSV/20250005,Suzuki_D,KazeHotel,Hakata-ku,30-Nov-2025,1,JPY 104259
+RSV/20250074,Yoshida_D,AoiInn,Shinjuku-ku,10-Nov-2025,4,15106 yen
+BK20250007,Watanabe_A,MizuGuesthouse,Gion-ku,07-Jun-2025,6,JPY 126755
+RSV/20250008,Watanabe_A,GardenStay,Namba,21-Mar-2025,5,JPY 113335
+RSV/20250009,Nakamura_B,GardenStay_Annex,Hakata,08-Apr-2025,5,34208 yen
+RSV/20250010,KATO_A,NamiLodge_Main,Kanazawa-ku,10-Feb-2025,3,JPY 92967
+BK20250011,Kobayashi_A,MizuGuesthouse,Kanazawa-ku,20-Feb-2025,6 nights,100280 yen
+BK20250012,Nakamura_B,KazeHotel_Main,Shinjuku-ku,06-Aug-2025,6 nights,74267 yen
+BK20250013,Yoshida_B,GardenStay,Sendai-ku,25-Sep-2025,7 nights,85864 yen
+BK20250014,KOBAYASHI_A,KazeHotel_Main,Naha-ku,25-Mar-2025,6,147242 yen
+RSV/20250097,YOSHIDA_B,KumoResort,Sendai-ku,16-Mar-2025,6 nights,JPY 47113
+BK20250016,SAITO_C,SkylineHotel_Main,Gion,27-Jun-2025,7,JPY 135851
+RSV/20250017,SATO_B,MizuGuesthouse,Sendai,05-Sep-2025,1,JPY 87524
+RSV/20250018,Yoshida_A,MizuGuesthouse,Sendai-ku,15-Apr-2025,3,JPY 124522
+RSV/20250019,Watanabe_A,MizuGuesthouse,Kanazawa,18-Oct-2025,5 nights,JPY 17330
+RSV/20250020,Suzuki_C,MapleRyokan,Namba,21-Jul-2025,2,23622 yen
+RSV/20250021,YOSHIDA_B,SkylineHotel,Namba,19-Feb-2025,3,64845 yen
+BK20250022,Yamamoto_D,KumoResort,Shinjuku-ku,27-Jun-2025,3,24531 yen
+RSV/20250023,ITO_C,SkylineHotel,Hondori-ku,08-Aug-2025,7,JPY 148125
+BK20250024,Kobayashi_C,HarborSuites,Namba-ku,02-Jul-2025,3 nights,128894 yen
+BK20250025,Watanabe_D,KumoResort_Annex,Shinjuku,27-Aug-2025,3,JPY 146502
+BK20250026,Tanaka_A,MapleRyokan_Main,Naha-ku,16-Aug-2025,5 nights,JPY 20489
+RSV/20250027,Watanabe_D,GardenStay,Hakata-ku,31-Mar-2025,1 nights,JPY 60771
+RSV/20250028,Nakamura_C,KazeHotel,Sapporo-ku,11-Apr-2025,7,31412 yen
+BK20250029,Watanabe_C,HarborSuites,Kanazawa,29-Jun-2025,3,JPY 53289
+RSV/20250030,Sato_B,MapleRyokan,Hondori,04-Aug-2025,5 nights,JPY 162019
+BK20250031,Saito_D,MizuGuesthouse,Sakae,22-Nov-2025,1 nights,44853 yen
+RSV/20250032,Yamamoto_B,SkylineHotel,Sakae,01-Mar-2025,7 nights,44548 yen
+BK20250033,Yamamoto_C,HarborSuites,Hakata,10-Nov-2025,3,JPY 44812
+RSV/20250034,TANAKA_C,KoyoHotel,Shinjuku,14-Mar-2025,1 nights,163197 yen
+RSV/20250098,Nakamura_B,KoyoHotel_Annex,Sakae,07-May-2025,4 nights,JPY 178592
+RSV/20250036,WATANABE_C,GardenStay,Sakae-ku,09-Aug-2025,5 nights,JPY 159233
+RSV/20250037,ITO_D,MapleRyokan_Main,Gion-ku,23-Nov-2025,6 nights,JPY 93976
+RSV/20250038,Ito_D,MapleRyokan_Main,Sapporo-ku,31-Jul-2025,1 nights,JPY 25248
+RSV/20250039,TANAKA_C,GardenStay,Sakae-ku,24-Feb-2025,4,25410 yen
+RSV/20250040,Kobayashi_A,SkylineHotel,Namba,11-Aug-2025,7 nights,JPY 100889
+BK20250041,YAMADA_B,GardenStay_Main,Hondori-ku,22-Sep-2025,2,170927 yen
+RSV/20250042,Kobayashi_C,MizuGuesthouse,Kanazawa,09-Oct-2025,6,JPY 159567
+BK20250043,Saito_A,KoyoHotel,Hondori,24-Nov-2025,5,71649 yen
+RSV/20250044,TANAKA_B,AoiInn,Sendai-ku,09-May-2025,1,127615 yen
+RSV/20250045,Saito_A,SkylineHotel,Kanazawa,15-Nov-2025,3 nights,JPY 137402
+RSV/20250046,Saito_C,KoyoHotel_Main,Hondori,07-Jun-2025,3,JPY 158299
+BK20250071,Ito_C,SkylineHotel,Sapporo,29-May-2025,4 nights,161366 yen
+RSV/20250048,Watanabe_D,KumoResort,Hondori-ku,15-May-2025,7,JPY 153184
+RSV/20250049,Yamada_B,MapleRyokan,Shinjuku,31-Aug-2025,3,JPY 135837
+BK20250050,YOSHIDA_D,MapleRyokan,Hakata,27-Jun-2025,6,27509 yen
+BK20250051,TANAKA_D,SkylineHotel,Shinjuku-ku,12-Oct-2025,2,JPY 87882
+RSV/20250052,Kato_D,SkylineHotel,Kanazawa,20-Jun-2025,2 nights,JPY 41529
+RSV/20250053,Kobayashi_B,SkylineHotel,Sendai-ku,07-Sep-2025,5 nights,JPY 97964
+BK20250054,KOBAYASHI_D,MapleRyokan,Hondori,19-Jul-2025,3 nights,JPY 164688
+RSV/20250055,KOBAYASHI_B,NamiLodge_Main,Kanazawa-ku,02-Apr-2025,6,89342 yen
+RSV/20250056,Ito_D,MizuGuesthouse,Sapporo,03-Dec-2025,7 nights,33461 yen
+RSV/20250057,Yamamoto_B,KoyoHotel_Main,Kanazawa-ku,26-Apr-2025,3,148404 yen
+RSV/20250058,Yoshida_B,MizuGuesthouse_Main,Sakae-ku,16-Nov-2025,1 nights,JPY 158485
+BK20250059,Suzuki_A,NamiLodge,Naha-ku,05-Nov-2025,1 nights,30092 yen
+BK20250060,Saito_D,GardenStay,Sakae,13-Aug-2025,4 nights,JPY 33037
+BK20250061,Yamamoto_D,MizuGuesthouse_Main,Gion,02-Feb-2025,7,JPY 17959
+BK20250062,Watanabe_B,KumoResort_Annex,Sapporo-ku,17-Feb-2025,7 nights,JPY 121901
+RSV/20250063,Nakamura_A,MapleRyokan,Shinjuku,13-Sep-2025,2 nights,153494 yen
+RSV/20250070,SUZUKI_D,GardenStay,Sapporo-ku,11-Jul-2025,4,JPY 23984
+BK20250065,Saito_B,NamiLodge,Kanazawa-ku,25-Feb-2025,3 nights,111917 yen
+BK20250064,Saito_C,KoyoHotel,Sendai-ku,02-Jun-2025,3,JPY 49554
+RSV/20250067,Suzuki_D,GardenStay,Namba-ku,09-May-2025,1,JPY 82375
+BK20250068,Kato_B,KazeHotel,Sapporo,06-Jul-2025,1 nights,JPY 67524
+RSV/20250069,Nakamura_B,NamiLodge,Sapporo-ku,15-Jul-2025,7,JPY 86202
+RSV/20250066,Yoshida_B,MapleRyokan,Hakata-ku,26-Sep-2025,1 nights,JPY 159426
+RSV/20250047,Yoshida_C,MizuGuesthouse_Annex,Hakata-ku,04-Apr-2025,5 nights,154394 yen
+RSV/20250072,Saito_D,KazeHotel,Gion,28-Apr-2025,2 nights,JPY 155273
+RSV/20250073,Suzuki_A,AoiInn,Sakae,30-May-2025,1,51591 yen
+BK20250006,Suzuki_D,KazeHotel,Sendai-ku,22-Feb-2025,4 nights,JPY 161856
+BK20250075,ITO_B,HarborSuites,Namba,18-Apr-2025,2 nights,62313 yen
+RSV/20250076,Yoshida_B,MapleRyokan,Hakata-ku,17-Feb-2025,1 nights,JPY 118241
+BK20250077,Ito_C,KoyoHotel,Namba-ku,22-Feb-2025,2,67421 yen
+BK20250078,Kobayashi_A,SkylineHotel,Naha-ku,18-May-2025,5 nights,JPY 49798
+RSV/20250079,Ito_C,NamiLodge_Main,Gion,15-Oct-2025,6,JPY 102664
+BK20250080,Watanabe_A,KumoResort,Hondori,28-May-2025,3 nights,156975 yen
+RSV/20250081,Sato_A,HarborSuites,Hakata-ku,14-Aug-2025,6,JPY 178173
+RSV/20250082,Kobayashi_A,SkylineHotel,Namba-ku,09-Sep-2025,4 nights,JPY 158010
+BK20250083,Watanabe_D,AoiInn_Annex,Hakata,18-Aug-2025,7 nights,JPY 34203
+RSV/20250084,Tanaka_C,KumoResort,Hakata-ku,16-Apr-2025,1 nights,JPY 55832
+RSV/20250085,Kato_D,KoyoHotel,Sendai,23-Sep-2025,1,JPY 47517
+RSV/20250086,WATANABE_D,KoyoHotel,Gion-ku,15-Jul-2025,5,64652 yen
+BK20250087,NAKAMURA_B,GardenStay_Annex,Sakae,21-Aug-2025,3,41855 yen
+RSV/20250088,Yoshida_B,KazeHotel,Hakata-ku,29-Aug-2025,6 nights,JPY 142889
+RSV/20250089,Yoshida_D,KoyoHotel,Sakae,18-Oct-2025,7,121655 yen
+BK20250090,Suzuki_A,MapleRyokan,Naha,11-Dec-2025,1,JPY 159644
+BK20250091,YAMADA_A,KumoResort,Sapporo-ku,24-Oct-2025,5,164179 yen
+RSV/20250092,Tanaka_C,AoiInn,Hondori-ku,02-Jul-2025,4 nights,JPY 34506
+RSV/20250093,Yoshida_C,KazeHotel,Namba,20-Sep-2025,3,29609 yen
+RSV/20250094,Tanaka_B,MizuGuesthouse_Annex,Gion-ku,23-Apr-2025,3,JPY 158761
+RSV/20250095,Saito_B,KazeHotel_Annex,Sendai,19-Aug-2025,1,JPY 68307
+RSV/20250096,Watanabe_C,MapleRyokan,Hondori,15-Jun-2025,6,JPY 140315
+RSV/20250015,SUZUKI_B,KazeHotel_Main,Naha-ku,01-Sep-2025,1 nights,JPY 115928
+RSV/20250035,YAMAMOTO_C,KumoResort,Hondori-ku,27-Aug-2025,3 nights,130893 yen
+RSV/20250100,SAITO_D,KazeHotel,Gion-ku,17-Nov-2025,1 nights,69810 yen
+RSV/20250099,Watanabe_D,KoyoHotel,Shinjuku,05-Feb-2025,4 nights,JPY 47791</script>
+  <script type="text/plain" id="ds_set2_desc">A_BookingID, Booking identifier in Table A.
+A_Traveler, Traveler name/handle in Table A.
+A_HotelName, Hotel/property name in Table A.
+A_City, City/area name in Table A.
+A_CheckInDate, Check-in date in Table A (YYYY-MM-DD).
+A_Nights, Number of nights in Table A.
+A_TotalJPY, Total booking amount in JPY in Table A.
+
+B_ReservationRef, Reservation reference in Table B (format may differ).
+B_GuestName, Guest name in Table B (may be uppercased).
+B_PropertyName, Property name in Table B (may include suffix like Annex/Main).
+B_Municipality, Municipality/ward in Table B (may include -ku suffix).
+B_ArrivalDate, Arrival/check-in date in Table B (DD-Mon-YYYY).
+B_StayLength, Stay length in Table B (may be a number or text).
+B_AmountText, Amount text in Table B (may include currency words).</script>
+  <script type="text/plain" id="ds_set2_match">SM
+A_BookingID, B_ReservationRef
+A_Traveler, B_GuestName
+A_HotelName, B_PropertyName
+A_TotalJPY, B_AmountText
+
+ER
+A_99, B_100
+A_64, B_66
+A_71, B_47
+A_66, B_70
+A_15, B_97
+A_74, B_6
+A_35, B_98</script>
+
+  <script type="text/plain" id="ds_set3_tableA">ProductID,Brand,ProductName,Category,Color,Size,ListPriceJPY
+P66-0001,Minato,Minato_Headphones_535,Bags,Red,M,115643
+P36-0002,Asahi,Asahi_Laptops_981,Sports,Gray,S,81740
+P51-0003,Sora,Sora_Jackets_686,Jackets,White,S,127172
+P51-0004,Orion,Orion_Cameras_601,Watches,Green,OneSize,55273
+P57-0005,Kuroda,Kuroda_Skincare_435,Sports,Black,OneSize,13188
+P37-0006,Kuroda,Kuroda_Jackets_430,Jackets,Beige,XL,76730
+P12-0007,Kitanami,Kitanami_Watches_551,Skincare,Black,L,27498
+P57-0008,Aster,Aster_Shoes_505,Jackets,Red,L,86895
+P11-0009,Tsubaki,Tsubaki_Bags_980,Cameras,Navy,L,10263
+P92-0010,Aster,Aster_Bags_643,Sports,Black,XL,86179
+P22-0011,Aster,Aster_Bags_703,Cameras,Beige,L,42202
+P13-0012,Sora,Sora_Headphones_630,Sports,Red,OneSize,52327
+P91-0013,Asahi,Asahi_Bags_640,Shoes,Beige,M,18279
+P11-0014,Sora,Sora_Headphones_140,Shoes,Gray,XL,38530
+P29-0015,Sora,Sora_Bags_417,Bags,Red,S,71285
+P17-0016,Orion,Orion_Bags_544,Bags,Silver,XL,80780
+P76-0017,Minato,Minato_Jackets_270,Laptops,Navy,OneSize,103363
+P18-0018,Sora,Sora_Sports_742,Bags,Silver,L,67929
+P10-0019,Hoshi,Hoshi_Shoes_350,Shoes,Silver,M,51177
+P50-0020,Sora,Sora_Bags_685,Laptops,White,XL,89234
+P49-0021,Tsubaki,Tsubaki_Bags_666,Skincare,Black,M,27282
+P79-0022,Orion,Orion_Watches_106,Cameras,Black,S,71961
+P49-0023,Kitanami,Kitanami_Headphones_642,Headphones,Gray,L,126964
+P68-0024,Kitanami,Kitanami_Sports_197,Kitchen,Navy,OneSize,108454
+P60-0025,Tsubaki,Tsubaki_Laptops_563,Jackets,Red,XS,124653
+P78-0026,Tsubaki,Tsubaki_Headphones_562,Jackets,Silver,M,112716
+P28-0027,Kitanami,Kitanami_Headphones_464,Cameras,Black,OneSize,40149
+P69-0028,Kitanami,Kitanami_Watches_224,Shoes,Black,S,18113
+P12-0029,Kitanami,Kitanami_Headphones_761,Skincare,Navy,XS,119610
+P60-0030,Kuroda,Kuroda_Shoes_491,Cameras,Navy,M,29123
+P73-0031,Moriya,Moriya_Kitchen_590,Shoes,White,M,51182
+P71-0032,Minato,Minato_Skincare_452,Sports,Beige,L,36426
+P77-0033,Tsubaki,Tsubaki_Sports_338,Watches,White,S,87076
+P55-0034,Aster,Aster_Watches_342,Sports,Beige,OneSize,92419
+P73-0035,Minato,Minato_Jackets_279,Skincare,Black,XS,8342
+P32-0036,Tsubaki,Tsubaki_Shoes_122,Watches,Navy,XS,111929
+P48-0037,Tsubaki,Tsubaki_Watches_261,Cameras,Silver,OneSize,42566
+P58-0038,Sora,Sora_Jackets_230,Watches,Black,OneSize,125327
+P38-0039,Asahi,Asahi_Bags_608,Watches,Beige,OneSize,11178
+P52-0040,Kuroda,Kuroda_Shoes_371,Headphones,Red,OneSize,9865
+P58-0041,Tsubaki,Tsubaki_Kitchen_484,Bags,Silver,XL,86303
+P23-0042,Kitanami,Kitanami_Laptops_274,Cameras,Navy,OneSize,10810
+P31-0043,Asahi,Asahi_Cameras_260,Shoes,White,M,27921
+P40-0044,Kitanami,Kitanami_Shoes_502,Sports,Silver,S,8124
+P31-0045,Sora,Sora_Bags_584,Bags,Green,L,62707
+P67-0046,Hoshi,Hoshi_Jackets_550,Skincare,Green,S,110697
+P85-0047,Orion,Orion_Kitchen_162,Cameras,Gray,XL,91035
+P74-0048,Asahi,Asahi_Kitchen_919,Sports,Navy,XS,125400
+P97-0049,Moriya,Moriya_Headphones_942,Watches,Green,M,120360
+P11-0050,Asahi,Asahi_Sports_635,Cameras,White,L,20593
+P54-0051,Moriya,Moriya_Jackets_492,Skincare,Silver,XS,23550
+P40-0052,Hoshi,Hoshi_Skincare_375,Laptops,Black,M,108116
+P27-0053,Sora,Sora_Skincare_892,Laptops,Green,OneSize,55607
+P57-0054,Hoshi,Hoshi_Kitchen_910,Watches,White,M,93984
+P17-0055,Orion,Orion_Shoes_567,Shoes,Beige,OneSize,27077
+P86-0056,Kuroda,Kuroda_Watches_991,Skincare,Beige,M,22412
+P37-0057,Orion,Orion_Headphones_793,Headphones,Green,OneSize,54654
+P38-0058,Sora,Sora_Sports_924,Jackets,Green,L,118352
+P75-0059,Tsubaki,Tsubaki_Kitchen_762,Sports,Green,M,90687
+P48-0060,Orion,Orion_Watches_629,Headphones,Black,XL,53945
+P14-0061,Asahi,Asahi_Sports_935,Headphones,Beige,OneSize,94482
+P94-0062,Minato,Minato_Watches_400,Bags,Silver,S,98093
+P49-0063,Moriya,Moriya_Laptops_480,Jackets,Green,L,112550
+P25-0064,Moriya,Moriya_Kitchen_405,Cameras,Black,S,18984
+P33-0065,Kitanami,Kitanami_Skincare_440,Watches,Beige,OneSize,8583
+P26-0066,Asahi,Asahi_Cameras_748,Cameras,Gray,L,127507
+P34-0067,Hoshi,Hoshi_Shoes_741,Headphones,Red,OneSize,115928
+P68-0068,Minato,Minato_Sports_636,Laptops,Gray,OneSize,18516
+P37-0069,Hoshi,Hoshi_Sports_616,Watches,White,M,94186
+P94-0070,Kitanami,Kitanami_Shoes_149,Bags,Gray,L,50820
+P76-0071,Sora,Sora_Sports_720,Watches,Gray,XS,68034
+P35-0072,Tsubaki,Tsubaki_Cameras_402,Watches,Black,XL,66038
+P95-0073,Kuroda,Kuroda_Watches_192,Kitchen,White,OneSize,95820
+P32-0074,Hoshi,Hoshi_Jackets_468,Laptops,Gray,OneSize,16171
+P66-0075,Asahi,Asahi_Jackets_999,Bags,Beige,M,24949
+P93-0076,Aster,Aster_Bags_235,Shoes,Navy,XS,55509
+P97-0077,Aster,Aster_Skincare_599,Bags,Gray,L,7005
+P82-0078,Orion,Orion_Laptops_631,Kitchen,White,L,87712
+P74-0079,Kuroda,Kuroda_Skincare_990,Watches,White,L,43006
+P66-0080,Asahi,Asahi_Skincare_190,Skincare,Silver,M,16539
+P87-0081,Asahi,Asahi_Jackets_620,Kitchen,Red,OneSize,88991
+P86-0082,Kuroda,Kuroda_Laptops_833,Skincare,White,XS,100505
+P15-0083,Aster,Aster_Skincare_243,Cameras,White,M,81045
+P91-0084,Asahi,Asahi_Bags_890,Skincare,Silver,OneSize,78222
+P71-0085,Minato,Minato_Watches_808,Sports,Navy,OneSize,107835
+P98-0086,Orion,Orion_Jackets_507,Laptops,Green,L,106466
+P80-0087,Orion,Orion_Headphones_314,Sports,Green,OneSize,46238
+P51-0088,Kitanami,Kitanami_Laptops_675,Skincare,Gray,OneSize,99004
+P16-0089,Hoshi,Hoshi_Headphones_373,Watches,Green,OneSize,33821
+P88-0090,Minato,Minato_Headphones_860,Kitchen,Gray,S,67947
+P50-0091,Minato,Minato_Shoes_113,Jackets,Red,XL,114861
+P87-0092,Orion,Orion_Headphones_401,Skincare,Navy,OneSize,10740
+P84-0093,Sora,Sora_Shoes_438,Skincare,Navy,XS,21126
+P19-0094,Tsubaki,Tsubaki_Kitchen_325,Watches,White,XL,21869
+P37-0095,Asahi,Asahi_Kitchen_586,Kitchen,Black,XS,88659
+P58-0096,Kitanami,Kitanami_Cameras_362,Kitchen,Green,XS,120430
+P51-0097,Minato,Minato_Bags_198,Watches,Black,OneSize,9561
+P65-0098,Kitanami,Kitanami_Watches_124,Skincare,Beige,XS,12451
+P61-0099,Moriya,Moriya_Laptops_117,Cameras,White,XL,1753
+P97-0100,Sora,Sora_Sports_188,Jackets,Silver,L,52768</script>
+  <script type="text/plain" id="ds_set3_tableB">SKU,Maker,Title,Department,Variant,Price,StockStatus
+P360002,ASAHI,Asahi Laptops 981,Beauty,Gray-S,JPY 81740,InStock
+SKU-P66-0001,Minato,Minato Headphones 535,Bags,Red-M,115643,InStock
+SKU-P51-0003,Sora,Sora Jackets 686,Electronics,White-M,JPY 127172,LowStock
+P510004,ORION,Orion_Cameras_601,Watches,Green-OneSize,55273,LowStock
+SKU-P57-0005,Kuroda,Kuroda_Skincare_435,Fashion,Gray-M,JPY 13188,OutOfStock
+SKU-P74-0048,ASAHI,Asahi_Kitchen_919,Sports,White-M,JPY 125400,InStock
+SKU-P12-0007,Kitanami,Kitanami_Watches_551,Beauty,Black-L,JPY 27498,InStock
+P570008,ASTER,Aster Shoes 505,Sports,Red-L,86895,InStock
+P110009,TSUBAKI,Tsubaki_Bags_980,Beauty,White-M,JPY 10263,InStock
+P920010,ASTER,Aster Bags 643,Sports,Silver-One,86179,InStock
+SKU-P22-0011,ASTER,Aster_Bags_703,Sports,Beige-L,42202,LowStock
+P130012,SORA,Sora_Headphones_630,Sports,Red-OneSize,JPY 52327,OutOfStock
+P910013,Asahi,Asahi Bags 640,Electronics,Black-L,JPY 18279,InStock
+SKU-P11-0014,Sora,Sora Headphones 140,Shoes,Gray-XL,JPY 38530,LowStock
+P290015,Sora,Sora_Bags_417,Fashion,Red-S,JPY 71285,InStock
+P150083,ASTER,Aster_Skincare_243,Electronics,Black-L,81045,InStock
+SKU-P76-0017,Minato,Minato Jackets 270,Laptops,Navy-OneSize,JPY 103363,LowStock
+P180018,Sora,Sora_Sports_742,Beauty,Black-L,JPY 67929,LowStock
+P190094,Tsubaki,Tsubaki Kitchen 325,Electronics,White-XL,JPY 21869,OutOfStock
+SKU-P50-0020,SORA,Sora_Bags_685,Laptops,Black-L,89234,OutOfStock
+P490021,Tsubaki,Tsubaki_Bags_666,Beauty,Black-M,JPY 27282,InStock
+P790022,Orion,Orion_Watches_106,Cameras,Black-S,71961,LowStock
+P490023,Kitanami,Kitanami_Headphones_642,Electronics,Gray-M,126964,OutOfStock
+P680024,Kitanami,Kitanami Sports 197,Electronics,Navy-OneSize,JPY 108454,OutOfStock
+P600025,Tsubaki,Tsubaki_Laptops_563,Electronics,Red-XS,JPY 124653,InStock
+P780026,TSUBAKI,Tsubaki_Headphones_562,Jackets,Silver-M,JPY 112716,OutOfStock
+P280027,Kitanami,Kitanami Headphones 464,Home,Black-OneSize,JPY 40149,InStock
+P690028,Kitanami,Kitanami_Watches_224,Shoes,Black-S,JPY 18113,InStock
+SKU-P12-0029,Kitanami,Kitanami Headphones 761,Skincare,Navy-XS,119610,OutOfStock
+SKU-P60-0030,KURODA,Kuroda Shoes 491,Sports,Navy-M,JPY 29123,OutOfStock
+P730031,MORIYA,Moriya_Kitchen_590,Sports,Gray-M,51182,OutOfStock
+P710032,MINATO,Minato Skincare 452,Sports,Black-M,36426,OutOfStock
+P770033,Tsubaki,Tsubaki_Sports_338,Watches,Navy-S,JPY 87076,OutOfStock
+P550034,Aster,Aster_Watches_342,Sports,Beige-OneSize,JPY 92419,InStock
+P730035,MINATO,Minato_Jackets_279,Sports,Black-XS,JPY 8342,LowStock
+SKU-P32-0036,TSUBAKI,Tsubaki Shoes 122,Watches,Navy-XS,JPY 111929,OutOfStock
+P480037,Tsubaki,Tsubaki_Watches_261,Cameras,Navy-S,42566,InStock
+SKU-P58-0038,Sora,Sora_Jackets_230,Electronics,Black-OneSize,125327,LowStock
+SKU-P76-0071,SORA,Sora Sports 720,Electronics,Gray-XS,68034,LowStock
+P520040,Kuroda,Kuroda_Shoes_371,Home,White-M,9865,OutOfStock
+SKU-P58-0041,TSUBAKI,Tsubaki Kitchen 484,Bags,Silver-XL,JPY 86303,OutOfStock
+SKU-P23-0042,Kitanami,Kitanami Laptops 274,Sports,Black-M,JPY 10810,LowStock
+SKU-P31-0043,Asahi,Asahi_Cameras_260,Shoes,White-M,27921,OutOfStock
+P400044,Kitanami,Kitanami Shoes 502,Sports,Silver-S,JPY 8124,InStock
+P310045,Sora,Sora Bags 584,Electronics,Green-L,JPY 62707,InStock
+P670046,HOSHI,Hoshi_Jackets_550,Fashion,Green-S,110697,OutOfStock
+SKU-P85-0047,Orion,Orion_Kitchen_162,Fashion,Gray-XL,91035,InStock
+P370006,Kuroda,Kuroda_Jackets_430,Jackets,Black-M,JPY 76730,OutOfStock
+SKU-P97-0049,Moriya,Moriya Headphones 942,Sports,Green-M,JPY 120360,OutOfStock
+P110050,Asahi,Asahi_Sports_635,Cameras,Black-L,20593,LowStock
+P540051,MORIYA,Moriya_Jackets_492,Fashion,Silver-XS,23550,LowStock
+SKU-P40-0052,HOSHI,Hoshi_Skincare_375,Laptops,Black-M,108116,InStock
+SKU-P27-0053,SORA,Sora Skincare 892,Laptops,Green-OneSize,JPY 55607,LowStock
+SKU-P57-0054,HOSHI,Hoshi_Kitchen_910,Watches,White-M,JPY 93984,InStock
+P170055,Orion,Orion_Shoes_567,Fashion,Beige-OneSize,JPY 27077,OutOfStock
+SKU-P86-0056,KURODA,Kuroda_Watches_991,Fashion,Beige-M,JPY 22412,LowStock
+SKU-P37-0057,Orion,Orion_Headphones_793,Home,White-M,54654,InStock
+P380058,SORA,Sora Sports 924,Sports,Gray-M,JPY 118352,InStock
+P750059,TSUBAKI,Tsubaki_Kitchen_762,Beauty,Green-M,90687,LowStock
+SKU-P48-0060,Orion,Orion_Watches_629,Beauty,Black-XL,JPY 53945,OutOfStock
+P140061,Asahi,Asahi_Sports_935,Headphones,Beige-OneSize,JPY 94482,InStock
+P940062,Minato,Minato_Watches_400,Beauty,Silver-S,JPY 98093,InStock
+P490063,MORIYA,Moriya_Laptops_480,Sports,Green-L,112550,LowStock
+SKU-P25-0064,MORIYA,Moriya_Kitchen_405,Cameras,White-M,JPY 18984,LowStock
+P330065,KITANAMI,Kitanami_Skincare_440,Electronics,Beige-OneSize,8583,InStock
+P260066,ASAHI,Asahi_Cameras_748,Cameras,Green-L,127507,LowStock
+P340067,HOSHI,Hoshi Shoes 741,Electronics,Red-OneSize,JPY 115928,OutOfStock
+P680068,Minato,Minato Sports 636,Home,Gray-OneSize,JPY 18516,InStock
+SKU-P37-0069,HOSHI,Hoshi_Sports_616,Sports,White-M,JPY 94186,InStock
+P940070,KITANAMI,Kitanami_Shoes_149,Fashion,Gray-L,50820,LowStock
+P380039,Asahi,Asahi Bags 608,Watches,Beige-OneSize,11178,LowStock
+SKU-P80-0087,ORION,Orion_Headphones_314,Sports,Green-OneSize,JPY 46238,LowStock
+P950073,KURODA,Kuroda Watches 192,Kitchen,White-OneSize,JPY 95820,InStock
+P320074,Hoshi,Hoshi Jackets 468,Laptops,Gray-OneSize,JPY 16171,OutOfStock
+P660075,Asahi,Asahi Jackets 999,Bags,Beige-M,JPY 24949,OutOfStock
+SKU-P93-0076,Aster,Aster_Bags_235,Sports,Navy-XS,JPY 55509,InStock
+P970077,Aster,Aster Skincare 599,Bags,Gray-L,7005,LowStock
+SKU-P82-0078,Orion,Orion_Laptops_631,Electronics,Black-M,JPY 87712,InStock
+P740079,Kuroda,Kuroda Skincare 990,Home,White-L,JPY 43006,OutOfStock
+SKU-P66-0080,Asahi,Asahi Skincare 190,Fashion,Silver-M,JPY 16539,InStock
+P870081,ASAHI,Asahi_Jackets_620,Kitchen,Green-L,JPY 88991,LowStock
+SKU-P86-0082,KURODA,Kuroda Laptops 833,Beauty,White-XS,JPY 100505,InStock
+P170016,Orion,Orion_Bags_544,Fashion,Black-M,JPY 80780,OutOfStock
+SKU-P91-0084,ASAHI,Asahi Bags 890,Fashion,Silver-OneSize,JPY 78222,LowStock
+P710085,MINATO,Minato_Watches_808,Sports,Navy-OneSize,JPY 107835,LowStock
+P980086,Orion,Orion_Jackets_507,Laptops,Green-L,106466,OutOfStock
+SKU-P35-0072,Tsubaki,Tsubaki Cameras 402,Fashion,Black-XL,66038,LowStock
+SKU-P51-0088,Kitanami,Kitanami_Laptops_675,Fashion,Gray-OneSize,JPY 99004,InStock
+P160089,HOSHI,Hoshi_Headphones_373,Sports,Green-OneSize,33821,InStock
+SKU-P88-0090,Minato,Minato Headphones 860,Home,Gray-S,67947,LowStock
+SKU-P50-0091,Minato,Minato_Shoes_113,Jackets,Green-L,114861,LowStock
+P870092,ORION,Orion_Headphones_401,Home,Navy-OneSize,JPY 10740,InStock
+SKU-P84-0093,Sora,Sora_Shoes_438,Beauty,Navy-XS,JPY 21126,OutOfStock
+SKU-P10-0019,HOSHI,Hoshi_Shoes_350,Home,Silver-M,JPY 51177,LowStock
+P370095,ASAHI,Asahi_Kitchen_586,Kitchen,Black-XS,JPY 88659,OutOfStock
+SKU-P58-0096,Kitanami,Kitanami_Cameras_362,Home,Green-XS,120430,InStock
+P510097,Minato,Minato Bags 198,Fashion,Black-OneSize,9561,LowStock
+P650098,KITANAMI,Kitanami Watches 124,Electronics,Gray-M,JPY 12451,LowStock
+SKU-P61-0099,Moriya,Moriya_Laptops_117,Fashion,White-XL,JPY 1753,OutOfStock
+SKU-P97-0100,SORA,Sora Sports 188,Home,Red-One,52768,InStock</script>
+  <script type="text/plain" id="ds_set3_desc">A_ProductID, Internal product identifier in Table A.
+A_Brand, Brand name in Table A.
+A_ProductName, Product title in Table A.
+A_Category, Category in Table A.
+A_Color, Color attribute in Table A.
+A_Size, Size attribute in Table A.
+A_ListPriceJPY, List price in JPY in Table A.
+
+B_SKU, External SKU in Table B (may include prefix).
+B_Maker, Maker/brand in Table B (may be uppercased).
+B_Title, Product title in Table B (may contain spaces).
+B_Department, Department in Table B (may differ from category).
+B_Variant, Variant string in Table B (e.g., Color-Size).
+B_Price, Price text in Table B (may include currency token).
+B_StockStatus, Stock status label in Table B.</script>
+  <script type="text/plain" id="ds_set3_match">SM
+A_ProductID, B_SKU
+A_Brand, B_Maker
+A_ProductName, B_Title
+A_ListPriceJPY, B_Price
+
+ER
+A_39, B_71
+A_87, B_72
+A_94, B_19
+A_83, B_16
+A_48, B_6
+A_2, B_1</script>
+
+  <script type="text/plain" id="ds_set4_tableA">FilmID,Title,ReleaseYear,Director,Genre,RuntimeMin,BoxOfficeUSD
+F686001,Mirage_Aurora,2015,Ito_K,Action,119,227542573
+F358002,Harbor_Skyline,2003,Nguyen_T,Drama,150,497279737
+F787003,Frontier_Harbor,2001,Smith_J,Adventure,88,209767506
+F423004,Aurora_Echo,1998,Tanaka_Y,Thriller,108,766717990
+F893005,Neon_Pulse,2015,Sasaki_M,Comedy,162,653361501
+F178006,Crescent_Skyline,1998,Ito_K,Drama,154,623589989
+F769007,Echo_Shadows,2010,Garcia_P,Adventure,173,922373004
+F925008,Mirage_Frontier,2003,Ito_K,Comedy,137,172963770
+F141009,Harbor_Pulse,2005,Sasaki_M,SciFi,127,253275639
+F140010,Frontier_Shadows,2001,Ito_K,SciFi,174,284733476
+F328011,Drift_Aurora,2009,Tanaka_Y,Documentary,141,650766605
+F291012,Echo_Shadows,2017,Sasaki_M,Thriller,133,872989978
+F122013,Harbor_Midnight,2002,Nguyen_T,Adventure,100,146658840
+F713014,Mirage_Frontier,1998,Smith_J,Action,107,484328432
+F775015,Drift_Neon,2003,Tanaka_Y,Documentary,156,636147620
+F529016,Echo_Mirage,2001,Chen_L,Documentary,158,646045166
+F652017,Midnight_Frontier,2018,Lee_H,Horror,133,399689759
+F923018,Crescent_Crescent,2016,Sasaki_M,Animation,97,275286650
+F105019,Crescent_Crescent,2023,Kato_R,Adventure,146,128517500
+F767020,Mirage_Neon,2006,Ito_K,Animation,152,394607356
+F672021,Drift_Pulse,2006,Smith_J,Adventure,124,833284997
+F202022,Harbor_Drift,2010,Tanaka_Y,Horror,158,750459689
+F545023,Skyline_Skyline,2006,Garcia_P,Romance,90,655939761
+F892024,Echo_Frontier,2013,Martin_A,Drama,105,915290047
+F136025,Shadows_Harbor,2018,Kato_R,Comedy,91,298284956
+F192026,Drift_Neon,2021,Ito_K,Adventure,124,375098534
+F618027,Skyline_Drift,2000,Ito_K,SciFi,123,127637455
+F676028,Pulse_Harbor,2022,Tanaka_Y,Documentary,167,496694805
+F423029,Aurora_Shadows,2014,Ito_K,Drama,169,895543297
+F421030,Shadows_Harbor,2016,Smith_J,Comedy,175,735480882
+F956031,Mirage_Shadows,2002,Sasaki_M,Action,90,727647741
+F604032,Mirage_Neon,2013,Chen_L,Horror,115,429219856
+F455033,Aurora_Frontier,2022,Chen_L,Documentary,95,751734394
+F727034,Neon_Echo,2015,Smith_J,Thriller,114,508103226
+F561035,Echo_Mirage,2002,Nguyen_T,Thriller,92,775969707
+F584036,Midnight_Echo,2011,Martin_A,Comedy,160,557132014
+F807037,Echo_Midnight,2004,Smith_J,Documentary,160,105403365
+F521038,Skyline_Shadows,2025,Nguyen_T,Thriller,153,620361962
+F180039,Aurora_Mirage,2007,Martin_A,Comedy,101,689818236
+F424040,Frontier_Neon,2020,Smith_J,Adventure,162,426616925
+F288041,Midnight_Echo,2021,Garcia_P,SciFi,175,754367594
+F506042,Drift_Skyline,2001,Smith_J,Adventure,99,92528528
+F135043,Frontier_Shadows,2025,Tanaka_Y,Documentary,139,937119898
+F866044,Frontier_Mirage,2011,Ito_K,Horror,119,374769123
+F100045,Drift_Echo,2009,Smith_J,Documentary,148,10930425
+F107046,Drift_Shadows,2004,Lee_H,Horror,135,425861817
+F345047,Drift_Mirage,2023,Smith_J,SciFi,163,799711678
+F732048,Pulse_Neon,2020,Nguyen_T,Documentary,104,346288576
+F844049,Midnight_Harbor,2000,Chen_L,Drama,143,235203933
+F182050,Echo_Midnight,2006,Lee_H,Action,149,506816257
+F494051,Pulse_Harbor,2021,Kato_R,Thriller,138,791546822
+F845052,Midnight_Crescent,2015,Ito_K,Action,112,518716343
+F432053,Midnight_Echo,2023,Smith_J,Adventure,95,426995927
+F191054,Harbor_Echo,2013,Sasaki_M,Adventure,123,817571513
+F671055,Frontier_Shadows,2023,Martin_A,Thriller,82,742076530
+F813056,Pulse_Harbor,2016,Chen_L,Horror,124,349549695
+F402057,Neon_Drift,2009,Martin_A,Drama,161,545267978
+F164058,Frontier_Drift,2024,Lee_H,Thriller,147,735606377
+F774059,Skyline_Midnight,2024,Chen_L,Comedy,84,218980704
+F362060,Midnight_Shadows,2005,Nguyen_T,Action,81,226130818
+F525061,Shadows_Crescent,1999,Nguyen_T,SciFi,147,45650990
+F494062,Harbor_Harbor,2014,Garcia_P,Adventure,160,194090149
+F284063,Drift_Aurora,2014,Tanaka_Y,Comedy,148,646154611
+F945064,Crescent_Shadows,2017,Garcia_P,Adventure,149,231703585
+F135065,Neon_Mirage,1998,Ito_K,Comedy,118,9053228
+F684066,Mirage_Echo,2001,Kato_R,Documentary,125,169618731
+F682067,Harbor_Crescent,2000,Tanaka_Y,Documentary,102,526282788
+F889068,Shadows_Shadows,2024,Lee_H,Animation,95,935926159
+F426069,Drift_Mirage,2002,Tanaka_Y,Horror,169,239079167
+F327070,Aurora_Neon,2023,Lee_H,Comedy,96,362957835
+F814071,Echo_Echo,2013,Ito_K,Thriller,142,426470332
+F801072,Mirage_Skyline,2001,Lee_H,Animation,126,375992719
+F922073,Pulse_Mirage,2002,Martin_A,Drama,109,216410364
+F989074,Neon_Midnight,2008,Sasaki_M,SciFi,137,507936741
+F737075,Crescent_Echo,2020,Kato_R,Animation,154,714458132
+F108076,Skyline_Aurora,2019,Smith_J,Romance,93,22485196
+F423077,Pulse_Mirage,2015,Sasaki_M,Comedy,105,539569722
+F260078,Midnight_Shadows,2019,Tanaka_Y,Romance,160,326620301
+F934079,Midnight_Drift,2006,Garcia_P,Comedy,123,423815818
+F536080,Neon_Mirage,2008,Martin_A,Horror,96,224003929
+F238081,Aurora_Echo,2018,Nguyen_T,Comedy,120,74814771
+F523082,Aurora_Neon,2012,Smith_J,Comedy,104,116644955
+F337083,Harbor_Frontier,1998,Tanaka_Y,Action,168,839332060
+F240084,Echo_Harbor,2005,Kato_R,Animation,81,291758574
+F549085,Mirage_Pulse,2020,Tanaka_Y,Documentary,111,461084418
+F708086,Drift_Drift,2018,Kato_R,Horror,93,486912105
+F671087,Aurora_Drift,2022,Kato_R,Thriller,117,473967377
+F806088,Drift_Echo,2012,Martin_A,Action,172,539577213
+F125089,Echo_Pulse,2016,Garcia_P,Documentary,91,270523822
+F749090,Shadows_Skyline,2014,Lee_H,Horror,158,173690961
+F266091,Echo_Echo,2022,Kato_R,Animation,119,334342748
+F569092,Pulse_Pulse,2015,Kato_R,Adventure,143,257419939
+F660093,Neon_Mirage,2018,Ito_K,Thriller,86,200470427
+F439094,Skyline_Midnight,2001,Lee_H,Comedy,100,723651676
+F468095,Midnight_Skyline,2022,Smith_J,Romance,127,408883029
+F437096,Drift_Aurora,2014,Garcia_P,Thriller,158,64475224
+F907097,Crescent_Neon,2011,Nguyen_T,Romance,113,566134530
+F724098,Harbor_Crescent,2007,Garcia_P,Drama,95,27755631
+F673099,Frontier_Harbor,1998,Garcia_P,SciFi,112,850465967
+F841100,Mirage_Mirage,1998,Chen_L,Thriller,122,897313101</script>
+  <script type="text/plain" id="ds_set4_tableB">IMDbID,MovieTitle,Year,DirectorName,Genres,Duration,WorldwideGross
+tt6768873,Mirage Aurora,2015-01-01,ITO_K,Action,119 min,USD 227542573
+tt2227162,Harbor Skyline,2003,Nguyen T,Drama|Documentary,150,USD 497279737
+tt6331563,Frontier Harbor,2001,Smith J,Adventure|Comedy,88 min,USD 209767506
+tt8316947,Aurora Echo,1998,Tanaka Y,Thriller,108 min,USD 766717990
+tt2375290,NEON_PULSE,2015-01-01,Sasaki M,Comedy,162 min,653361501
+tt7797028,CRESCENT_SKYLINE,1998,Ito K,Drama,154,USD 623589989
+tt5882155,Echo Shadows,2010,Garcia P,Adventure,173 min,USD 922373004
+tt4195887,Mirage Skyline,2001,Lee H,Animation,126,USD 375992719
+tt1718206,HARBOR_PULSE,2005,SASAKI_M,SciFi,127,253275639
+tt3916715,Frontier Shadows,2001,Ito K,SciFi|Action,174 min,USD 284733476
+tt1110690,DRIFT_AURORA,2009,Tanaka Y,Documentary,141,USD 650766605
+tt6540252,ECHO_SHADOWS,2017,Sasaki M,Thriller,133 min,872989978
+tt9600719,Harbor Midnight,2002,Nguyen T,Adventure,100 min,146658840
+tt8909005,MIRAGE_FRONTIER,1998,SMITH_J,Action|Adventure,107,USD 484328432
+tt2154992,Drift Neon,2003,Tanaka Y,Documentary,156,USD 636147620
+tt1654924,ECHO_MIRAGE,2001,CHEN_L,Documentary,158,646045166
+tt1728773,MIDNIGHT_FRONTIER,2018,LEE_H,Horror,133,USD 399689759
+tt9005101,CRESCENT_CRESCENT,2016-01-01,Sasaki M,Animation,97 min,USD 275286650
+tt9720156,Crescent Crescent,2023,Kato R,Adventure,146 min,USD 128517500
+tt5623138,MIRAGE_NEON,2006,Ito K,Animation,152 min,USD 394607356
+tt7679508,DRIFT_PULSE,2006-01-01,Smith J,Adventure|Documentary,124,833284997
+tt1873301,Harbor Drift,2010-01-01,Tanaka Y,Horror,158 min,750459689
+tt1633429,SKYLINE_SKYLINE,2006-01-01,Garcia P,Romance|SciFi,90,USD 655939761
+tt9693169,Echo Frontier,2013,Martin A,Drama,105 min,USD 915290047
+tt7701385,Shadows Harbor,2018,Kato R,Comedy,91,USD 298284956
+tt5639031,Drift Neon,2021-01-01,Ito K,Adventure,124 min,USD 375098534
+tt9611521,SKYLINE_DRIFT,2000-01-01,ITO_K,SciFi,123,127637455
+tt1458868,Pulse Harbor,2022,Tanaka Y,Documentary|Thriller,167,USD 496694805
+tt5418274,Aurora Shadows,2014,Ito K,Drama|Action,169 min,USD 895543297
+tt4190481,Shadows Harbor,2016,SMITH_J,Comedy|Thriller,175 min,735480882
+tt9265544,MIRAGE_SHADOWS,2002-01-01,Sasaki M,Action,90 min,USD 727647741
+tt4726098,MIRAGE_NEON,2013,Chen L,Horror,115,USD 429219856
+tt9694039,Aurora Frontier,2022,Chen L,Documentary,95 min,USD 751734394
+tt6756203,Neon Echo,2015,Smith J,Thriller|Romance,114 min,USD 508103226
+tt5528994,ECHO_MIRAGE,2002,NGUYEN_T,Thriller,92,775969707
+tt9958741,MIDNIGHT_ECHO,2011-01-01,Martin A,Comedy,160 min,USD 557132014
+tt8547311,ECHO_MIDNIGHT,2004,Smith J,Documentary,160,USD 105403365
+tt3928275,SKYLINE_SHADOWS,2025,Nguyen T,Thriller,153,USD 620361962
+tt3570227,Drift Mirage,2002-01-01,Tanaka Y,Horror,169 min,USD 239079167
+tt5550787,FRONTIER_NEON,2020-01-01,SMITH_J,Adventure|Horror,162,USD 426616925
+tt2833787,DRIFT_AURORA,2014-01-01,Garcia P,Thriller,158,USD 64475224
+tt7540534,Drift Skyline,2001,Smith J,Adventure|Comedy,99 min,USD 92528528
+tt7271672,Pulse Mirage,2002-01-01,Martin A,Drama|Thriller,109,216410364
+tt9080774,FRONTIER_MIRAGE,2011-01-01,Ito K,Horror,119 min,USD 374769123
+tt9253243,DRIFT_ECHO,2009,Smith J,Documentary,148 min,USD 10930425
+tt5192561,Drift Shadows,2004-01-01,Lee H,Horror,135 min,USD 425861817
+tt9924543,DRIFT_MIRAGE,2023,SMITH_J,SciFi,163 min,USD 799711678
+tt1325400,Pulse Neon,2020-01-01,Nguyen T,Documentary|SciFi,104 min,346288576
+tt6736345,Midnight Harbor,2000-01-01,Chen L,Drama,143,USD 235203933
+tt4046805,Echo Midnight,2006-01-01,LEE_H,Action|Action,149,506816257
+tt2576392,PULSE_HARBOR,2021-01-01,Kato R,Thriller|SciFi,138,USD 791546822
+tt6013251,Midnight Crescent,2015-01-01,ITO_K,Action,112 min,USD 518716343
+tt7678001,AURORA_DRIFT,2022-01-01,Kato R,Thriller,117 min,473967377
+tt2007511,Harbor Echo,2013,SASAKI_M,Adventure|Comedy,123 min,USD 817571513
+tt7337911,Frontier Shadows,2023,MARTIN_A,Thriller,82 min,USD 742076530
+tt8858359,Pulse Harbor,2016-01-01,CHEN_L,Horror,124 min,USD 349549695
+tt7359295,NEON_DRIFT,2009-01-01,Martin A,Drama,161,USD 545267978
+tt9347489,FRONTIER_DRIFT,2024,Lee H,Thriller,147 min,USD 735606377
+tt2599943,HARBOR_CRESCENT,2000,TANAKA_Y,Documentary,102 min,USD 526282788
+tt3487325,Neon Mirage,2018,Ito K,Thriller,86 min,USD 200470427
+tt2180916,SHADOWS_CRESCENT,1999,Nguyen T,SciFi,147 min,USD 45650990
+tt7965641,HARBOR_HARBOR,2014-01-01,Garcia P,Adventure|Animation,160,USD 194090149
+tt8432510,DRIFT_AURORA,2014-01-01,Tanaka Y,Comedy|Romance,148 min,USD 646154611
+tt7292514,CRESCENT_SHADOWS,2017-01-01,Garcia P,Adventure|Documentary,149,USD 231703585
+tt6038767,NEON_MIRAGE,1998,Ito K,Comedy|SciFi,118,USD 9053228
+tt3322104,Mirage Echo,2001-01-01,Kato R,Documentary,125 min,USD 169618731
+tt2796087,Skyline Midnight,2024,Chen L,Comedy|Documentary,84 min,218980704
+tt4803691,SHADOWS_SHADOWS,2024-01-01,LEE_H,Animation|Animation,95 min,USD 935926159
+tt6660436,Aurora Mirage,2007,Martin A,Comedy|Action,101 min,USD 689818236
+tt2384877,Aurora Neon,2023-01-01,Lee H,Comedy,96 min,USD 362957835
+tt4290000,ECHO_ECHO,2013-01-01,Ito K,Thriller,142 min,USD 426470332
+tt4005557,MIRAGE_FRONTIER,2003,ITO_K,Comedy,137,172963770
+tt5570355,FRONTIER_SHADOWS,2025,TANAKA_Y,Documentary,139 min,USD 937119898
+tt1381650,Neon Midnight,2008-01-01,Sasaki M,SciFi,137,USD 507936741
+tt9838222,Crescent Echo,2020,Kato R,Animation|Adventure,154 min,USD 714458132
+tt5907261,SKYLINE_AURORA,2019,Smith J,Romance,93,USD 22485196
+tt8683734,PULSE_MIRAGE,2015-01-01,Sasaki M,Comedy|SciFi,105 min,USD 539569722
+tt4962858,MIDNIGHT_SHADOWS,2019-01-01,Tanaka Y,Romance,160 min,USD 326620301
+tt3302852,Midnight Drift,2006,GARCIA_P,Comedy|Thriller,123 min,USD 423815818
+tt3324928,NEON_MIRAGE,2008,Martin A,Horror,96,224003929
+tt9941610,AURORA_ECHO,2018,Nguyen T,Comedy|Drama,120,74814771
+tt3206973,Aurora Neon,2012-01-01,Smith J,Comedy,104 min,USD 116644955
+tt8996058,Harbor Frontier,1998-01-01,Tanaka Y,Action|Comedy,168,USD 839332060
+tt7929728,Echo Harbor,2005,Kato R,Animation,81 min,291758574
+tt7792537,MIRAGE_PULSE,2020,TANAKA_Y,Documentary|Animation,111,461084418
+tt8665517,DRIFT_DRIFT,2018,KATO_R,Horror,93 min,486912105
+tt5078362,Midnight Echo,2023,SMITH_J,Adventure,95 min,USD 426995927
+tt2898704,Drift Echo,2012,MARTIN_A,Action,172 min,USD 539577213
+tt6437072,ECHO_PULSE,2016-01-01,GARCIA_P,Documentary|Action,91 min,270523822
+tt7353173,SHADOWS_SKYLINE,2014,Lee H,Horror,158,173690961
+tt8486970,Echo Echo,2022,KATO_R,Animation|Drama,119,USD 334342748
+tt4638539,PULSE_PULSE,2015,Kato R,Adventure,143,USD 257419939
+tt9244416,MIDNIGHT_SHADOWS,2005-01-01,Nguyen T,Action|Romance,81 min,226130818
+tt5771113,SKYLINE_MIDNIGHT,2001,Lee H,Comedy|Comedy,100,723651676
+tt2135258,MIDNIGHT_SKYLINE,2022-01-01,Smith J,Romance,127 min,408883029
+tt2343263,Midnight Echo,2021,Garcia P,SciFi|Documentary,175 min,USD 754367594
+tt6936673,CRESCENT_NEON,2011,Nguyen T,Romance|Documentary,113 min,USD 566134530
+tt8799486,HARBOR_CRESCENT,2007,GARCIA_P,Drama|Animation,95 min,USD 27755631
+tt2138100,Frontier Harbor,1998,Garcia P,SciFi,112,USD 850465967
+tt6669639,MIRAGE_MIRAGE,1998,Chen L,Thriller,122 min,USD 897313101</script>
+  <script type="text/plain" id="ds_set4_desc">A_FilmID, Internal film identifier in Table A.
+A_Title, Film title in Table A.
+A_ReleaseYear, Release year in Table A (YYYY).
+A_Director, Director name in Table A.
+A_Genre, Primary genre in Table A.
+A_RuntimeMin, Runtime in minutes in Table A.
+A_BoxOfficeUSD, Worldwide box office (USD) in Table A.
+
+B_IMDbID, External IMDb-style identifier in Table B.
+B_MovieTitle, Movie title in Table B (may be uppercased).
+B_Year, Release year field in Table B (may include a full date string).
+B_DirectorName, Director name in Table B (spacing/casing may differ).
+B_Genres, Genre field in Table B (may contain multiple genres separated by |).
+B_Duration, Duration field in Table B (may include units).
+B_WorldwideGross, Worldwide gross field in Table B (may include currency token).</script>
+  <script type="text/plain" id="ds_set4_match">SM
+A_Title, B_MovieTitle
+A_ReleaseYear, B_Year
+A_Director, B_DirectorName
+A_BoxOfficeUSD, B_WorldwideGross
+
+ER
+A_59, B_67
+A_69, B_39
+A_43, B_73
+A_60, B_93
+A_53, B_87
+A_96, B_41
+A_8, B_72</script>
+  <script>
+    // Optional: set a submit endpoint to centrally collect answers (requires CORS + server)
+    // Example: const SUBMIT_ENDPOINT = 'https://script.google.com/macros/s/XXX/exec';
+    const SUBMIT_ENDPOINT = '';
+
+    const STORAGE_KEY = 'di_experiment_answers_v1';
+
+    const HIDE_MATCH_STAGES = [1, 3];
+
+    // Datasets are read from script[type="text/plain"] blocks to avoid template-literal quoting issues.
+    const DATASETS = {
+      set1: {
+        label: 'Set 1: Transaction Data (Card Ledger vs Bank Posting)',
+        csv1: document.getElementById('ds_set1_tableA').textContent,
+        csv2: document.getElementById('ds_set1_tableB').textContent,
+        metadata: document.getElementById('ds_set1_desc').textContent,
+        match: document.getElementById('ds_set1_match').textContent
+      },
+      set2: {
+        label: 'Set 2: Tourism Data (Hotel Bookings vs Reservation Feed)',
+        csv1: document.getElementById('ds_set2_tableA').textContent,
+        csv2: document.getElementById('ds_set2_tableB').textContent,
+        metadata: document.getElementById('ds_set2_desc').textContent,
+        match: document.getElementById('ds_set2_match').textContent
+      },
+      set3: {
+        label: 'Set 3: Product Catalog (Internal Master vs E-commerce Feed)',
+        csv1: document.getElementById('ds_set3_tableA').textContent,
+        csv2: document.getElementById('ds_set3_tableB').textContent,
+        metadata: document.getElementById('ds_set3_desc').textContent,
+        match: document.getElementById('ds_set3_match').textContent
+      },
+      set4: {
+        label: 'Set 4: Movie Data (Studio Register vs Public Listing)',
+        csv1: document.getElementById('ds_set4_tableA').textContent,
+        csv2: document.getElementById('ds_set4_tableB').textContent,
+        metadata: document.getElementById('ds_set4_desc').textContent,
+        match: document.getElementById('ds_set4_match').textContent
+      }
+    };
+
+    // Helper: parse CSV (simple; assumes no embedded newlines in fields)
+    function parseCSV(text) {
+      const rows = [];
+      const lines = String(text || '').replace(/\r/g, '').split('\n').filter(line => line.trim() !== '');
+      for (const line of lines) {
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') {
+            inQuotes = !inQuotes;
+          } else if (ch === ',' && !inQuotes) {
+            values.push(current);
+            current = '';
+          } else {
+            current += ch;
+          }
+        }
+        values.push(current);
+        rows.push(values);
+      }
+      return rows;
+    }
+
+    function displayCSV(containerId, data) {
+      const container = document.getElementById(containerId);
+      if (!data || data.length === 0) {
+        container.innerHTML = '<p>No data.</p>';
+        return;
+      }
+      const table = document.createElement('table');
+      const headerRow = document.createElement('tr');
+
+      const headerNumber = document.createElement('th');
+      headerNumber.className = 'row-number';
+      headerNumber.textContent = 'Row';
+      headerRow.appendChild(headerNumber);
+
+      data[0].forEach(col => {
+        const th = document.createElement('th');
+        th.textContent = col;
+        headerRow.appendChild(th);
+      });
+      table.appendChild(headerRow);
+
+      for (let i = 1; i < data.length; i++) {
+        const row = document.createElement('tr');
+
+        const rowNumber = document.createElement('th');
+        rowNumber.className = 'row-number';
+        rowNumber.scope = 'row';
+        rowNumber.textContent = i;
+        row.appendChild(rowNumber);
+
+        data[i].forEach(cell => {
+          const td = document.createElement('td');
+          td.textContent = cell;
+          row.appendChild(td);
+        });
+        table.appendChild(row);
+      }
+
+      container.innerHTML = '';
+      container.appendChild(table);
+    }
+
+    function displayText(containerId, text) {
+      document.getElementById(containerId).textContent = text || '';
+    }
+
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 1800);
+    }
+
+    function storageAvailable() {
+      try {
+        const x = '__test__';
+        localStorage.setItem(x, x);
+        localStorage.removeItem(x);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function readAllAnswers() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function writeAllAnswers(all) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    }
+
+    let currentStage = 1; // 1..4 => set1..set4
+
+    // Participant ID is optional. If not provided, we use a stable anonymous session id on this browser.
+    const SESSION_KEY = 'di_experiment_session_id_v1';
+    function getOrCreateSessionId() {
+      // Use localStorage if available; otherwise fall back to an in-memory id for this page session.
+      try {
+        if (storageAvailable()) {
+          const existing = localStorage.getItem(SESSION_KEY);
+          if (existing) return existing;
+          const created = 'ANON-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now().toString(36);
+          localStorage.setItem(SESSION_KEY, created);
+          return created;
+        }
+      } catch (e) { /* ignore */ }
+      return 'ANON-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now().toString(36);
+    }
+    const sessionId = getOrCreateSessionId();
+
+    function effectivePid() {
+      const pid = document.getElementById('participantId').value.trim();
+      return pid || sessionId;
+    }
+
+function stageKey() {
+      return currentStage === 1 ? 'set1' : (currentStage === 2 ? 'set2' : (currentStage === 3 ? 'set3' : 'set4'));
+    }
+
+    function currentDatasetLabel() {
+      const key = stageKey();
+      return DATASETS[key].label;
+    }
+
+    function findExistingAnswer(participantId, stage) {
+      const all = readAllAnswers();
+      return all.find(r => (r.participantId || '') === (participantId || '') && r.stage === stage) || null;
+    }
+
+    function preloadAnswersIfAny() {
+      const pid = effectivePid();
+      const existing = findExistingAnswer(pid, currentStage);
+      if (existing) {
+        document.getElementById('smAnswer').value = existing.sm || '';
+        document.getElementById('erAnswer').value = existing.er || '';
+        document.getElementById('saveStatus').textContent = 'Saved: ' + (existing.savedAt || '');
+      } else {
+        document.getElementById('saveStatus').textContent = '';
+      }
+    }
+
+    function collectAnswersByStage() {
+      const pid = effectivePid();
+      const out = {};
+      for (let s = 1; s <= 4; s++) {
+        const existing = (storageAvailable() ? findExistingAnswer(pid, s) : null);
+        out[s] = {
+          sm: existing && existing.sm ? existing.sm : '',
+          er: existing && existing.er ? existing.er : ''
+        };
+      }
+
+function collectSavedAnswersByStage() {
+  const pid = effectivePid();
+  const out = {};
+  for (let s = 1; s <= 4; s++) {
+    const existing = (storageAvailable() ? findExistingAnswer(pid, s) : null);
+    out[s] = {
+      sm: existing && existing.sm ? existing.sm : '',
+      er: existing && existing.er ? existing.er : ''
+    };
+  }
+  return out;
+}
+
+      // Overlay current (possibly unsaved) edits for the active stage
+      out[currentStage] = {
+        sm: document.getElementById('smAnswer').value.trim(),
+        er: document.getElementById('erAnswer').value.trim()
+      };
+      return out;
+    }
+
+    function formatAnswersText(ansByStage) {
+      const lines = [];
+      for (let s = 1; s <= 4; s++) {
+        lines.push('Set' + s);
+        lines.push('SM');
+        lines.push(ansByStage[s] && ansByStage[s].sm ? ansByStage[s].sm : '');
+        lines.push('ER');
+        lines.push(ansByStage[s] && ansByStage[s].er ? ansByStage[s].er : '');
+      }
+      return lines.join('\n');
+    }
+
+    function refreshFinalCopyPanelIfNeeded() {
+      const panel = document.getElementById('finalCopyPanel');
+      const txt = document.getElementById('finalCopyText');
+      if (!panel || !txt) return;
+      if (currentStage !== 4) return;
+      txt.value = formatAnswersText(collectSavedAnswersByStage());
+    }
+
+
+    function loadStage() {
+      const key = stageKey();
+      const ds = DATASETS[key];
+
+      document.getElementById('stagePill').textContent = 'Stage ' + currentStage + ' / 4';
+      document.getElementById('datasetLabel').textContent = ds.label;
+
+      document.getElementById('tableWrapper1').innerHTML = '';
+      document.getElementById('tableWrapper2').innerHTML = '';
+      document.getElementById('metadataDisplay').textContent = '';
+      document.getElementById('matchDisplay').textContent = '';
+
+      displayCSV('tableWrapper1', parseCSV(ds.csv1));
+      displayCSV('tableWrapper2', parseCSV(ds.csv2));
+      displayText('metadataDisplay', ds.metadata);
+
+      const matchColumn = document.getElementById('matchColumn');
+      // Keep the frame visible for all stages and show recommendations (including Set 1 / Stage 1).
+      matchColumn.style.display = '';
+      if (HIDE_MATCH_STAGES.includes(currentStage)) {
+        displayText('matchDisplay', '');
+      } else {
+        displayText('matchDisplay', ds.match);
+      }
+
+const nextBtn = document.getElementById('nextBtn');
+      if (currentStage < 4) {
+        nextBtn.disabled = false;
+        nextBtn.textContent = 'Next';
+      } else {
+        nextBtn.disabled = true;
+        nextBtn.textContent = 'Next';
+      }
+
+      preloadAnswersIfAny();
+      // Stage 4: show consolidated text export panel for Set1〜Set4
+      const finalPanel = document.getElementById('finalCopyPanel');
+      const finalText = document.getElementById('finalCopyText');
+      if (finalPanel && finalText) {
+        if (currentStage === 4) {
+          finalPanel.style.display = '';
+          refreshFinalCopyPanelIfNeeded();
+        } else {
+          finalPanel.style.display = 'none';
+          finalText.value = '';
+        }
+      }
+    }
+
+    function buildRecord() {
+      const enteredPid = document.getElementById('participantId').value.trim();
+      const pid = enteredPid || sessionId;
+      const sm = document.getElementById('smAnswer').value.trim();
+      const er = document.getElementById('erAnswer').value.trim();
+
+      return {
+        participantId: pid,
+        enteredParticipantId: enteredPid || '',
+        stage: currentStage,
+        datasetLabel: currentDatasetLabel(),
+        sm: sm,
+        er: er,
+        savedAt: new Date().toISOString(),
+        userAgent: navigator.userAgent
+      };
+    }
+
+    async function trySubmitToServer(record) {
+      if (!SUBMIT_ENDPOINT) return { ok: false, skipped: true, reason: 'No endpoint configured' };
+      try {
+        const res = await fetch(SUBMIT_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(record),
+          mode: 'cors'
+        });
+        if (!res.ok) return { ok: false, skipped: false, reason: 'HTTP ' + res.status };
+        return { ok: true, skipped: false };
+      } catch (e) {
+        return { ok: false, skipped: false, reason: String(e) };
+      }
+    }
+
+    function saveLocally(record) {
+      const all = readAllAnswers();
+      const idx = all.findIndex(r => (r.participantId || '') === (record.participantId || '') && r.stage === record.stage);
+      if (idx >= 0) all[idx] = record;
+      else all.push(record);
+      writeAllAnswers(all);
+    }
+
+    document.getElementById('submitAnswer').addEventListener('click', async () => {
+      const record = buildRecord();
+
+      if (storageAvailable()) {
+        saveLocally(record);
+        document.getElementById('saveStatus').textContent = 'Saved: ' + record.savedAt;
+        toast('Saved locally');
+      } else {
+        document.getElementById('storageWarning').style.display = 'block';
+        toast('Storage unavailable; please Copy answers');
+      }
+
+      refreshFinalCopyPanelIfNeeded();
+
+      const server = await trySubmitToServer(record);
+      if (server.ok) {
+        toast('Submitted to server');
+      } else if (!server.skipped) {
+        toast('Server submit failed (saved locally)');
+      }
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      if (currentStage < 4) {
+        // Best-effort auto-save before moving to the next stage
+        if (storageAvailable()) {
+          try { saveLocally(buildRecord()); } catch (e) { /* ignore */ }
+        }
+        currentStage = currentStage + 1;
+        document.getElementById('smAnswer').value = '';
+        document.getElementById('erAnswer').value = '';
+        document.getElementById('saveStatus').textContent = '';
+        loadStage();
+        window.scrollTo(0, 0);
+      }
+    });
+
+    document.getElementById('participantId').addEventListener('input', () => {
+      preloadAnswersIfAny();
+    });
+
+    document.getElementById('smAnswer').addEventListener('input', refreshFinalCopyPanelIfNeeded);
+    document.getElementById('erAnswer').addEventListener('input', refreshFinalCopyPanelIfNeeded);
+
+    function downloadText(filename, content, mimeType) {
+      const blob = new Blob([content], { type: mimeType || 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 0);
+    }
+
+    document.getElementById('exportAll').addEventListener('click', () => {
+      const all = readAllAnswers();
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        answers: all
+      };
+      downloadText('data_integration_answers.json', JSON.stringify(payload, null, 2), 'application/json');
+      toast('Exported');
+    });
+
+    document.getElementById('copyAll').addEventListener('click', async () => {
+      const text = formatAnswersText(collectSavedAnswersByStage());
+      try {
+        await navigator.clipboard.writeText(text);
+        toast('Copied');
+      } catch (e) {
+        window.prompt('Copy the text below:', text);
+      }
+    });
+
+    document.getElementById('clearAll').addEventListener('click', () => {
+      if (!confirm('保存済み回答をすべて削除します。よろしいですか？')) return;
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        document.getElementById('saveStatus').textContent = '';
+        toast('Cleared');
+      } catch (e) {
+        toast('Clear failed');
+      }
+    });
+
+    // Warn if navigating away with unsaved edits (best-effort)
+    let lastSavedSignature = '';
+    function currentSignature() {
+      const pid = effectivePid();
+      const sm = document.getElementById('smAnswer').value.trim();
+      const er = document.getElementById('erAnswer').value.trim();
+      return JSON.stringify([pid, currentStage, sm, er]);
+    }
+    setInterval(() => {
+      const pid = effectivePid();
+      if (!storageAvailable()) return;
+      const existing = findExistingAnswer(pid, currentStage);
+      if (existing) {
+        lastSavedSignature = JSON.stringify([pid, currentStage, existing.sm || '', existing.er || '']);
+      }
+    }, 1500);
+
+    window.addEventListener('beforeunload', (e) => {
+      const sig = currentSignature();
+      if (sig && lastSavedSignature && sig !== lastSavedSignature) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+
+    // Init
+    if (!storageAvailable()) {
+      document.getElementById('storageWarning').style.display = 'block';
+    }
+    loadStage();
+  </script>
+</body>
+</html>
